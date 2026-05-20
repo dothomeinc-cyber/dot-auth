@@ -1,17 +1,29 @@
-# Dot Auth Example Setup
+# Dot Auth Example App
 
-## Prerequisites
+This is a complete working example of the dot_auth package.
 
-1. Create a Firebase project at https://console.firebase.google.com
-2. Enable Phone Authentication in Firebase Console
-3. Register your Android/iOS app in Firebase
+## Setup Instructions
 
-## Setup Steps
+### 1. Create a Firebase Project
+- Go to https://console.firebase.google.com
+- Create a new project
+- Enable Phone Authentication
 
-### 1. Configure Firebase CLI
+### 2. Register Your App
+
+**For Android:**
+- Package name: `com.example.dot_auth_example`
+- Download `google-services.json`
+- Place in `android/app/`
+
+**For iOS:**
+- Bundle ID: `com.example.dotAuthExample`
+- Download `GoogleService-Info.plist`
+- Place in `ios/Runner/`
+
+### 3. Generate Firebase Options
 
 ```bash
-cd example
 flutter pub add firebase_core firebase_auth
 flutter pub add -d flutterfire_cli
 flutterfire configure

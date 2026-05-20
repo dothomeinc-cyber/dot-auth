@@ -1,9 +1,8 @@
 name: dot_auth
-description: A powerful Flutter authentication package with phone number OTP verification using Firebase. Features Riverpod state management, GoRouter integration, and customizable UI.
-version: 1.0.0
+description: A powerful Flutter authentication package with phone number OTP verification using Firebase.
+version: 1.0.1
 homepage: https://github.com/yourusername/dot_auth
 repository: https://github.com/yourusername/dot_auth
-issue_tracker: https://github.com/yourusername/dot_auth/issues
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -29,3 +28,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+false_secrets:
+  - example/lib/firebase_options.dart
+  - example/android/app/google-services.json
+  - example/ios/Runner/GoogleService-Info.plist
