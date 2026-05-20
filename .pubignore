@@ -1,0 +1,33 @@
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Example app sensitive files
+example/lib/firebase_options.dart
+example/android/app/google-services.json
+example/ios/Runner/GoogleService-Info.plist
+example/firebase.json
+example/firepit-log.txt
+
+# Build files
+build/
+.dart_tool/
+
+# Logs
+*.log
+
+# Test files
+test/
+
+# OS files
+.DS_Store
+*.swp
+*.lock
+
+# Firebase debug
+firebase-debug.log
