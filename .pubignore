@@ -30,4 +30,6 @@ test/
 *.lock
 
 # Firebase debug
-firebase-debug.log
+firebase-debug.logexample/firebase.json
+example/firepit-log.txt
+example/lib/firebase_options.dart
