@@ -1,3 +1,7 @@
+## 1.0.9
+- Fixed type casting error in RouterNotifier
+- Removed unnecessary type argument
+
 ## 1.0.8
 - Added RouterNotifier for reactive routing
 - Improved auth state redirection

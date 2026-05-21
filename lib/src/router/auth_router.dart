@@ -15,8 +15,8 @@ class AuthRouter {
     List<GoRoute> additionalRoutes = const [],
     String initialLocation = '/phone',
   }) {
-    // Create router notifier
-    final routerNotifier = RouterNotifier(ref as Ref<Object?>);
+    // Create router notifier - FIXED: removed the type cast
+    final routerNotifier = RouterNotifier(ref as Ref);
 
     return GoRouter(
       initialLocation: initialLocation,
