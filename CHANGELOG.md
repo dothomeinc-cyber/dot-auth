@@ -1,10 +1,14 @@
+## 1.0.5
+- Added RouterNotifier for reactive routing
+- Improved auth state redirection
+- Better navigation handling on login/logout
+
 ## 1.0.4
 
 - Updated README with complete API documentation
 - Added role-based access control examples
 - Improved documentation for Firestore integration
 - Fixed typos and formatting
-
 
 ## 1.0.3
 

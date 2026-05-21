@@ -899,3 +899,242 @@ service cloud.firestore {
     }
   }
 }
+
+User Service to Manage User Type
+
+// lib/services/user_service.dart
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+class UserService {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // Create/Update user document after login
+  Future<void> setUserType(String userId, String userType) async {
+    await _firestore.collection('users').doc(userId).set({
+      'userId': userId,
+      'phoneNumber': _auth.currentUser?.phoneNumber,
+      'userType': userType, // 'customer', 'vendor', 'admin'
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  // Check if current user is vendor
+  Future<bool> isVendor() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    return doc.data()?['userType'] == 'vendor';
+  }
+
+  // Get user type
+  Future<String> getUserType() async {
+    final user = _auth.currentUser;
+    if (user == null) return 'none';
+    
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    return doc.data()?['userType'] ?? 'customer';
+  }
+}
+
+After Login - Set User Type
+
+// In your phone_screen.dart or main.dart after successful login
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+// After FirebaseAuth sign in
+Future<void> handleSuccessfulLogin(UserCredential credential) async {
+  final user = credential.user;
+  if (user != null) {
+    // Check if user document exists
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+    
+    if (!userDoc.exists) {
+      // First time login - create as customer
+      await UserService().setUserType(user.uid, 'customer');
+    }
+  }
+}
+
+Vendor Registration - Create Vendor Document
+
+// lib/screens/register_vendor.dart
+
+Future<void> registerAsVendor() async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return;
+  
+  // Update user type to vendor
+  await UserService().setUserType(user.uid, 'vendor');
+  
+  // Create vendor document
+  await FirebaseFirestore.instance.collection('vendors').doc(user.uid).set({
+    'vendorId': user.uid,
+    'businessName': businessName,
+    'phoneNumber': user.phoneNumber,
+    'status': 'approved', // or 'pending'
+    'createdAt': FieldValue.serverTimestamp(),
+    'totalProducts': 0,
+    'rating': 0,
+  });
+}
+
+
+Vendor-Only Actions
+
+// lib/screens/add_product.dart - Only vendors can add products
+
+class AddProductScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FutureBuilder(
+      future: UserService().isVendor(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        
+        if (snapshot.data != true) {
+          return Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.block, size: 64),
+                  const SizedBox(height: 16),
+                  const Text('Only vendors can add products'),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pushNamed(context, '/register-vendor'),
+                    child: const Text('Register as Vendor'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        
+        return _AddProductForm();
+      },
+    );
+  }
+}
+
+class _AddProductForm extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Add Product')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            TextFormField(
+              decoration: const InputDecoration(labelText: 'Product Name'),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              decoration: const InputDecoration(labelText: 'Price'),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              decoration: const InputDecoration(labelText: 'Description'),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () async {
+                final user = FirebaseAuth.instance.currentUser;
+                
+                // Security rules will verify this is a vendor
+                await FirebaseFirestore.instance.collection('products').add({
+                  'name': 'Product Name',
+                  'price': 100,
+                  'description': 'Description',
+                  'vendorId': user!.uid,
+                  'createdAt': FieldValue.serverTimestamp(),
+                });
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Product added!')),
+                );
+              },
+              child: const Text('Add Product'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Riverpod Provider for User Type
+
+// lib/providers/user_provider.dart
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/user_service.dart';
+
+final userTypeProvider = FutureProvider<String>((ref) async {
+  return await UserService().getUserType();
+});
+
+final isVendorProvider = FutureProvider<bool>((ref) async {
+  return await UserService().isVendor();
+});
+
+// Auto-refresh when auth state changes
+final vendorStatusProvider = Provider<bool>((ref) {
+  final authState = ref.watch(authStateProvider);
+  final isVendorAsync = ref.watch(isVendorProvider);
+  
+  return isVendorAsync.when(
+    data: (isVendor) => isVendor,
+    loading: () => false,
+    error: (_, __) => false,
+  );
+});
+
+
+Creating Custom Router Manually:
+
+If you create your own router manually (not using AuthRouter.createRouter()), then you do need to add it:
+
+// Only needed if you make your own router
+class MyApp extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final routerNotifier = RouterNotifier(ref);  // Create it
+    
+    final router = GoRouter(
+      initialLocation: '/phone',
+      refreshListenable: routerNotifier,  // YOU MUST ADD THIS
+      redirect: routerNotifier.redirect,   // YOU MUST ADD THIS
+      routes: [
+        // Your routes
+      ],
+    );
+    
+    return MaterialApp.router(routerConfig: router);
+  }
+}
+
+Need Help?
+📚 Full Documentation
+
+💡 Report Issues
+
+⭐ Star on GitHub
+
+License
+MIT License - see LICENSE file for details.
+
+Made with ❤️ for the Flutter community
