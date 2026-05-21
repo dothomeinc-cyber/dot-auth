@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:state_notifier/state_notifier.dart'; // Add this import
 import '../models/models.dart';
 
-// Phone Auth Notifier - Legacy StateNotifier
-class PhoneAuthNotifier extends StateNotifier<PhoneAuthModel> {
+// Phone Auth Notifier
+class PhoneAuthNotifier
+    extends StateNotifier<PhoneAuthModel> {
   PhoneAuthNotifier() : super(PhoneAuthModel.initial());
 
   void setPhoneNumber(String phoneNumber) {
@@ -39,23 +41,25 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthModel> {
   }
 }
 
-final phoneAuthProvider =
-    StateNotifierProvider<PhoneAuthNotifier, PhoneAuthModel>(
+final phoneAuthProvider = StateNotifierProvider<
+    PhoneAuthNotifier, PhoneAuthModel>(
   (ref) => PhoneAuthNotifier(),
 );
 
-// Main Auth State Notifier - Legacy StateNotifier
-class AuthStateNotifier extends StateNotifier<AuthStateModel> {
+// Main Auth State Notifier
+class AuthStateNotifier
+    extends StateNotifier<AuthStateModel> {
   AuthStateNotifier() : super(AuthStateModel.initial()) {
-    // Listen to Firebase auth changes
-    FirebaseAuth.instance.authStateChanges().listen(_onAuthStateChanged);
-    // Check current user immediately
+    FirebaseAuth.instance
+        .authStateChanges()
+        .listen(_onAuthStateChanged);
     _onAuthStateChanged(FirebaseAuth.instance.currentUser);
   }
 
   void _onAuthStateChanged(User? firebaseUser) {
     if (firebaseUser != null) {
-      final userModel = UserModel.fromFirebaseUser(firebaseUser);
+      final userModel =
+          UserModel.fromFirebaseUser(firebaseUser);
       state = AuthStateModel.authenticated(userModel);
     } else {
       state = AuthStateModel.unauthenticated();
@@ -67,7 +71,8 @@ class AuthStateNotifier extends StateNotifier<AuthStateModel> {
     try {
       await FirebaseAuth.instance.signOut();
     } catch (e) {
-      state = AuthStateModel.error('Failed to sign out: $e');
+      state =
+          AuthStateModel.error('Failed to sign out: $e');
     }
   }
 
@@ -80,8 +85,8 @@ class AuthStateNotifier extends StateNotifier<AuthStateModel> {
   }
 }
 
-final authStateProvider =
-    StateNotifierProvider<AuthStateNotifier, AuthStateModel>(
+final authStateProvider = StateNotifierProvider<
+    AuthStateNotifier, AuthStateModel>(
   (ref) => AuthStateNotifier(),
 );
 

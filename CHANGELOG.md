@@ -1,3 +1,11 @@
+## 1.0.10
+- Fixed missing StateNotifier import
+- Added state_notifier dependency
+- Fixed RouterNotifier type casting
+- All providers now work correctly
+
+
+
 ## 1.0.9
 - Fixed type casting error in RouterNotifier
 - Removed unnecessary type argument

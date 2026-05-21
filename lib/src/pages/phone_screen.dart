@@ -11,12 +11,14 @@ class AuthPhone extends ConsumerStatefulWidget {
   const AuthPhone({super.key});
 
   @override
-  ConsumerState<AuthPhone> createState() => _AuthPhoneState();
+  ConsumerState<AuthPhone> createState() =>
+      _AuthPhoneState();
 }
 
 class _AuthPhoneState extends ConsumerState<AuthPhone> {
   final PhoneController _phoneController = PhoneController(
-    initialValue: const PhoneNumber(isoCode: IsoCode.IN, nsn: ''),
+    initialValue:
+        const PhoneNumber(isoCode: IsoCode.IN, nsn: ''),
   );
 
   @override
@@ -26,7 +28,8 @@ class _AuthPhoneState extends ConsumerState<AuthPhone> {
   }
 
   Future<void> _sendVerificationCode() async {
-    final phoneNumber = _phoneController.value.international;
+    final phoneNumber =
+        _phoneController.value.international;
 
     if (phoneNumber.isEmpty) {
       ref
@@ -41,13 +44,16 @@ class _AuthPhoneState extends ConsumerState<AuthPhone> {
     try {
       await FirebaseAuth.instance.verifyPhoneNumber(
         phoneNumber: phoneNumber,
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          await FirebaseAuth.instance.signInWithCredential(credential);
+        verificationCompleted:
+            (PhoneAuthCredential credential) async {
+          await FirebaseAuth.instance
+              .signInWithCredential(credential);
           if (mounted) {
-            ref.read(phoneAuthProvider.notifier).setPhoneNumber(phoneNumber);
+            ref
+                .read(phoneAuthProvider.notifier)
+                .setPhoneNumber(phoneNumber);
             if (mounted) {
-              // Changed from go to pushReplacement
-              context.pushReplacement('/home');
+              context.go('/home');
             }
           }
         },
@@ -56,20 +62,25 @@ class _AuthPhoneState extends ConsumerState<AuthPhone> {
               .read(phoneAuthProvider.notifier)
               .setError(e.message ?? 'Verification failed');
         },
-        codeSent: (String verificationId, int? resendToken) {
-          ref.read(phoneAuthProvider.notifier).setPhoneNumber(phoneNumber);
+        codeSent:
+            (String verificationId, int? resendToken) {
+          ref
+              .read(phoneAuthProvider.notifier)
+              .setPhoneNumber(phoneNumber);
           ref
               .read(phoneAuthProvider.notifier)
               .setVerificationId(verificationId);
           if (mounted) {
-            // Changed from go to pushReplacement
-            context.pushReplacement('/otp');
+            context.go('/otp');
           }
         },
-        codeAutoRetrievalTimeout: (String verificationId) {},
+        codeAutoRetrievalTimeout:
+            (String verificationId) {},
       );
     } catch (e) {
-      ref.read(phoneAuthProvider.notifier).setError(e.toString());
+      ref
+          .read(phoneAuthProvider.notifier)
+          .setError(e.toString());
     }
   }
 
@@ -107,19 +118,22 @@ class _AuthPhoneState extends ConsumerState<AuthPhone> {
                 PhoneValidator.required(context),
                 PhoneValidator.validMobile(context),
               ]),
-              autovalidateMode: AutovalidateMode.onUserInteraction,
+              autovalidateMode:
+                  AutovalidateMode.onUserInteraction,
             ),
             SizedBox(height: 32.h),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed:
-                    phoneAuthState.isLoading ? null : _sendVerificationCode,
+                onPressed: phoneAuthState.isLoading
+                    ? null
+                    : _sendVerificationCode,
                 child: phoneAuthState.isLoading
                     ? SizedBox(
                         height: 20.h,
                         width: 20.w,
-                        child: const CircularProgressIndicator(
+                        child:
+                            const CircularProgressIndicator(
                           strokeWidth: 2,
                         ),
                       )
