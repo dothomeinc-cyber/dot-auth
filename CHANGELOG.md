@@ -1,3 +1,9 @@
+## 1.0.7
+- Added RouterNotifier for reactive routing
+- Improved auth state redirection
+- Better navigation handling on login/logout
+
+
 ## 1.0.6
 - Added RouterNotifier for reactive routing
 - Improved auth state redirection

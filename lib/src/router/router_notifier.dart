@@ -7,8 +7,7 @@ import '../models/auth_state_model.dart';
 
 class RouterNotifier extends ChangeNotifier {
   final Ref ref;
-  late final ProviderSubscription<AuthStateModel>
-      _authSubscription;
+  late final ProviderSubscription<AuthStateModel> _authSubscription;
 
   RouterNotifier(this.ref) {
     // Listen to auth state changes
@@ -22,12 +21,11 @@ class RouterNotifier extends ChangeNotifier {
   }
 
   // Called when router needs to redirect
-  String? redirect(
-      BuildContext context, GoRouterState state) {
+  String? redirect(BuildContext context, GoRouterState state) {
     final authState = ref.read(authStateProvider);
     final isAuthenticated = authState.isAuthenticated;
-    final isAuthPage = state.matchedLocation == '/phone' ||
-        state.matchedLocation == '/otp';
+    final isAuthPage =
+        state.matchedLocation == '/phone' || state.matchedLocation == '/otp';
 
     // Redirect authenticated users away from auth pages
     if (isAuthenticated && isAuthPage) {
@@ -35,8 +33,7 @@ class RouterNotifier extends ChangeNotifier {
     }
 
     // Redirect unauthenticated users away from protected pages
-    if (!isAuthenticated &&
-        state.matchedLocation == '/home') {
+    if (!isAuthenticated && state.matchedLocation == '/home') {
       return '/phone';
     }
 

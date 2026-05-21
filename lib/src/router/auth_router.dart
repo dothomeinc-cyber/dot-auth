@@ -10,15 +10,13 @@ class AuthRouter {
   static GoRouter createRouter({
     required WidgetRef ref,
     required String homeRoute,
-    required Widget Function(
-            BuildContext context, GoRouterState state)
+    required Widget Function(BuildContext context, GoRouterState state)
         homeBuilder,
     List<GoRoute> additionalRoutes = const [],
     String initialLocation = '/phone',
   }) {
     // Create router notifier
-    final routerNotifier =
-        RouterNotifier(ref as Ref<Object?>);
+    final routerNotifier = RouterNotifier(ref as Ref<Object?>);
 
     return GoRouter(
       initialLocation: initialLocation,
@@ -41,8 +39,7 @@ class AuthRouter {
                 return SharedAxisTransition(
                   animation: animation,
                   secondaryAnimation: secondaryAnimation,
-                  transitionType:
-                      SharedAxisTransitionType.horizontal,
+                  transitionType: SharedAxisTransitionType.horizontal,
                   child: child,
                 );
               },
@@ -65,8 +62,7 @@ class AuthRouter {
                 return SharedAxisTransition(
                   animation: animation,
                   secondaryAnimation: secondaryAnimation,
-                  transitionType:
-                      SharedAxisTransitionType.horizontal,
+                  transitionType: SharedAxisTransitionType.horizontal,
                   child: child,
                 );
               },
@@ -89,8 +85,7 @@ class AuthRouter {
                 return SharedAxisTransition(
                   animation: animation,
                   secondaryAnimation: secondaryAnimation,
-                  transitionType:
-                      SharedAxisTransitionType.horizontal,
+                  transitionType: SharedAxisTransitionType.horizontal,
                   child: child,
                 );
               },
