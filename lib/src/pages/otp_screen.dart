@@ -12,8 +12,7 @@ class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key});
 
   @override
-  ConsumerState<OtpScreen> createState() =>
-      _OtpScreenState();
+  ConsumerState<OtpScreen> createState() => _OtpScreenState();
 }
 
 class _OtpScreenState extends ConsumerState<OtpScreen> {
@@ -41,8 +40,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       _secondsRemaining = 30;
       _canResend = false;
     });
-    _timer =
-        Timer.periodic(const Duration(seconds: 1), (timer) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsRemaining > 0) {
         setState(() {
           _secondsRemaining--;
@@ -64,8 +62,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
     if (verificationId == null) {
       setState(() {
-        _errorMessage =
-            'Verification failed. Please try again.';
+        _errorMessage = 'Verification failed. Please try again.';
       });
       return;
     }
@@ -81,8 +78,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         smsCode: otpCode,
       );
 
-      await FirebaseAuth.instance
-          .signInWithCredential(credential);
+      await FirebaseAuth.instance.signInWithCredential(credential);
 
       if (mounted) {
         ref.read(phoneAuthProvider.notifier).reset();
@@ -90,14 +86,12 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       }
     } on FirebaseAuthException catch (e) {
       setState(() {
-        _errorMessage =
-            e.message ?? 'Invalid verification code';
+        _errorMessage = e.message ?? 'Invalid verification code';
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _errorMessage =
-            'An error occurred. Please try again.';
+        _errorMessage = 'An error occurred. Please try again.';
         _isLoading = false;
       });
     }
@@ -123,29 +117,22 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     try {
       await FirebaseAuth.instance.verifyPhoneNumber(
         phoneNumber: phoneNumber,
-        forceResendingToken:
-            resendToken, // Use the stored resend token
-        verificationCompleted:
-            (PhoneAuthCredential credential) async {
-          await FirebaseAuth.instance
-              .signInWithCredential(credential);
+        forceResendingToken: resendToken, // Use the stored resend token
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await FirebaseAuth.instance.signInWithCredential(credential);
           if (mounted) {
             context.go('/home');
           }
         },
         verificationFailed: (FirebaseAuthException e) {
           setState(() {
-            _errorMessage =
-                e.message ?? 'Failed to resend code';
+            _errorMessage = e.message ?? 'Failed to resend code';
             _isLoading = false;
           });
         },
-        codeSent:
-            (String verificationId, int? newResendToken) {
+        codeSent: (String verificationId, int? newResendToken) {
           // Update with new verification ID and token
-          ref
-              .read(phoneAuthProvider.notifier)
-              .setVerificationData(
+          ref.read(phoneAuthProvider.notifier).setVerificationData(
                 verificationId,
                 newResendToken,
               );
@@ -160,8 +147,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             ),
           );
         },
-        codeAutoRetrievalTimeout:
-            (String verificationId) {},
+        codeAutoRetrievalTimeout: (String verificationId) {},
       );
     } catch (e) {
       setState(() {
@@ -223,18 +209,13 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 length: 6,
                 defaultPinTheme: defaultPinTheme,
                 focusedPinTheme: defaultPinTheme.copyWith(
-                  decoration:
-                      defaultPinTheme.decoration!.copyWith(
-                    border: Border.all(
-                        color: AuthColors.black,
-                        width: 1.5.w),
+                  decoration: defaultPinTheme.decoration!.copyWith(
+                    border: Border.all(color: AuthColors.black, width: 1.5.w),
                   ),
                 ),
                 errorPinTheme: defaultPinTheme.copyWith(
-                  decoration:
-                      defaultPinTheme.decoration!.copyWith(
-                    border:
-                        Border.all(color: AuthColors.error),
+                  decoration: defaultPinTheme.decoration!.copyWith(
+                    border: Border.all(color: AuthColors.error),
                   ),
                 ),
                 onCompleted: _verifyOtp,
@@ -266,12 +247,10 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                     ),
                   if (_canResend)
                     TextButton(
-                      onPressed:
-                          _isLoading ? null : _resendCode,
+                      onPressed: _isLoading ? null : _resendCode,
                       child: Text(
                         'Resend Code',
-                        style:
-                            AuthTextStyles.labelM.copyWith(
+                        style: AuthTextStyles.labelM.copyWith(
                           color: AuthColors.yellow,
                         ),
                       ),

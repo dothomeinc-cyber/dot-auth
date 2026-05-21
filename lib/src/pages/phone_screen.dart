@@ -11,8 +11,7 @@ class AuthPhone extends ConsumerStatefulWidget {
   const AuthPhone({super.key});
 
   @override
-  ConsumerState<AuthPhone> createState() =>
-      _AuthPhoneState();
+  ConsumerState<AuthPhone> createState() => _AuthPhoneState();
 }
 
 class _AuthPhoneState extends ConsumerState<AuthPhone> {
@@ -31,8 +30,7 @@ class _AuthPhoneState extends ConsumerState<AuthPhone> {
   Future<void> _sendVerificationCode() async {
     if (_verificationInProgress) return;
 
-    final phoneNumber =
-        _phoneController.value?.international;
+    final phoneNumber = _phoneController.value?.international;
 
     if (phoneNumber == null || phoneNumber.isEmpty) {
       ref
@@ -51,14 +49,10 @@ class _AuthPhoneState extends ConsumerState<AuthPhone> {
     try {
       await FirebaseAuth.instance.verifyPhoneNumber(
         phoneNumber: phoneNumber,
-        verificationCompleted:
-            (PhoneAuthCredential credential) async {
-          await FirebaseAuth.instance
-              .signInWithCredential(credential);
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await FirebaseAuth.instance.signInWithCredential(credential);
           if (mounted) {
-            ref
-                .read(phoneAuthProvider.notifier)
-                .setPhoneNumber(phoneNumber);
+            ref.read(phoneAuthProvider.notifier).setPhoneNumber(phoneNumber);
             if (mounted) {
               context.go('/home');
             }
@@ -72,17 +66,12 @@ class _AuthPhoneState extends ConsumerState<AuthPhone> {
               .read(phoneAuthProvider.notifier)
               .setError(e.message ?? 'Verification failed');
         },
-        codeSent:
-            (String verificationId, int? resendToken) {
+        codeSent: (String verificationId, int? resendToken) {
           setState(() {
             _verificationInProgress = false;
           });
-          ref
-              .read(phoneAuthProvider.notifier)
-              .setPhoneNumber(phoneNumber);
-          ref
-              .read(phoneAuthProvider.notifier)
-              .setVerificationData(
+          ref.read(phoneAuthProvider.notifier).setPhoneNumber(phoneNumber);
+          ref.read(phoneAuthProvider.notifier).setVerificationData(
                 verificationId,
                 resendToken,
               );
@@ -103,9 +92,7 @@ class _AuthPhoneState extends ConsumerState<AuthPhone> {
       setState(() {
         _verificationInProgress = false;
       });
-      ref
-          .read(phoneAuthProvider.notifier)
-          .setError(e.toString());
+      ref.read(phoneAuthProvider.notifier).setError(e.toString());
     }
   }
 
@@ -143,26 +130,21 @@ class _AuthPhoneState extends ConsumerState<AuthPhone> {
                 PhoneValidator.required(context),
                 PhoneValidator.validMobile(context),
               ]),
-              autovalidateMode:
-                  AutovalidateMode.onUserInteraction,
-              enabled: !_verificationInProgress &&
-                  !phoneAuthState.isLoading,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              enabled: !_verificationInProgress && !phoneAuthState.isLoading,
             ),
             SizedBox(height: 32.h),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: (_verificationInProgress ||
-                        phoneAuthState.isLoading)
+                onPressed: (_verificationInProgress || phoneAuthState.isLoading)
                     ? null
                     : _sendVerificationCode,
-                child: (_verificationInProgress ||
-                        phoneAuthState.isLoading)
+                child: (_verificationInProgress || phoneAuthState.isLoading)
                     ? SizedBox(
                         height: 20.h,
                         width: 20.w,
-                        child:
-                            const CircularProgressIndicator(
+                        child: const CircularProgressIndicator(
                           strokeWidth: 2,
                         ),
                       )

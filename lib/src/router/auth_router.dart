@@ -11,8 +11,7 @@ class AuthRouter {
   static GoRouter createRouter({
     required WidgetRef ref,
     required String homeRoute,
-    required Widget Function(
-            BuildContext context, GoRouterState state)
+    required Widget Function(BuildContext context, GoRouterState state)
         homeBuilder,
     List<GoRoute> additionalRoutes = const [],
     String initialLocation = '/phone',
@@ -41,8 +40,7 @@ class AuthRouter {
                 return SharedAxisTransition(
                   animation: animation,
                   secondaryAnimation: secondaryAnimation,
-                  transitionType:
-                      SharedAxisTransitionType.horizontal,
+                  transitionType: SharedAxisTransitionType.horizontal,
                   child: child,
                 );
               },
@@ -65,8 +63,7 @@ class AuthRouter {
                 return SharedAxisTransition(
                   animation: animation,
                   secondaryAnimation: secondaryAnimation,
-                  transitionType:
-                      SharedAxisTransitionType.horizontal,
+                  transitionType: SharedAxisTransitionType.horizontal,
                   child: child,
                 );
               },
@@ -89,8 +86,7 @@ class AuthRouter {
                 return SharedAxisTransition(
                   animation: animation,
                   secondaryAnimation: secondaryAnimation,
-                  transitionType:
-                      SharedAxisTransitionType.horizontal,
+                  transitionType: SharedAxisTransitionType.horizontal,
                   child: child,
                 );
               },

@@ -1,42 +1,45 @@
-# Dot Auth 🔐
+# dot_auth
 
-![Pub Version](https://img.shields.io/pub/v/dot_auth.svg)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
+A Flutter package for phone-based Firebase authentication with Riverpod state management and GoRouter navigation — batteries included.
 
-A powerful and reusable Flutter authentication package with phone number OTP verification using Firebase. Built with Riverpod for state management and GoRouter for navigation.
+[![pub version](https://img.shields.io/badge/pub-v1.0.0-blue)](https://pub.dev)
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Flutter](https://img.shields.io/badge/Flutter-3.x-blue)](https://flutter.dev)
+
+---
 
 ## Table of Contents
 
-- [Features](#features)
-- [Installation](#installation)
+- [Dependencies](#dependencies)
 - [Quick Start](#quick-start)
-- [API Reference](#api-reference)
-- [Authentication State Provider](#authentication-state-provider-authstateprovider)
-- [Current User Provider](#current-user-provider-currentuserprovider)
-- [Authentication Status Provider](#authentication-status-provider-isauthenticatedprovider)
-- [Phone Authentication Provider](#phone-authentication-provider-phoneauthprovider)
+  - [1. Setup Firebase](#1-setup-firebase)
+  - [2. Initialize in main()](#2-initialize-in-main)
+  - [3. Configure Router](#3-configure-router)
+- [Providers](#providers)
+  - [authStateProvider](#authstateprovider)
+  - [currentUserProvider](#currentuserprovider)
+  - [isAuthenticatedProvider](#isauthenticatedprovider)
+  - [phoneAuthProvider](#phoneauthprovider)
 - [Methods (Notifiers)](#methods-notifiers)
-- [Complete Usage Examples](#complete-usage-examples)
+  - [Auth State Notifier](#auth-state-notifier)
+  - [Phone Auth Notifier](#phone-auth-notifier)
 - [AuthStatus Enum](#authstatus-enum)
-- [Quick Reference Card](#quick-reference-card)
+- [Usage Examples](#usage-examples)
 - [Firestore Security Rules](#firestore-security-rules)
-- [User Service to Manage User Type](#user-service-to-manage-user-type)
-- [Need Help?](#need-help)
-- [License](#license)
+- [User Roles & Services](#user-roles--services)
+  - [UserService](#userservice)
+  - [Riverpod Providers for User Type](#riverpod-providers-for-user-type)
+  - [After Login — Set User Type](#after-login--set-user-type)
+  - [Vendor Registration](#vendor-registration)
+  - [Vendor-Only Actions](#vendor-only-actions)
+- [Custom Router (Manual Setup)](#custom-router-manual-setup)
+- [Quick Reference Card](#quick-reference-card)
 
-## Features
+---
 
-✅ **Phone Authentication** - OTP verification with Firebase
-✅ **Riverpod Integration** - Clean and testable state management
-✅ **GoRouter Support** - Declarative routing with auth guards
-✅ **Responsive Design** - ScreenUtil for adaptive UI
-✅ **Customizable Theme** - Easy to match your brand
-✅ **Type Safety** - Full type-safe models and providers
-✅ **Ready-to-use UI** - Beautiful pre-built screens
+## Dependencies
 
-## Installation
-
-Add to your `pubspec.yaml`:
+Add the following to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
@@ -46,18 +49,25 @@ dependencies:
   flutter_riverpod: ^2.5.0
   go_router: ^14.0.0
   flutter_screenutil: ^5.9.0
+```
 
-Then run :
-   flutter pub get
+Then run:
 
+```bash
+flutter pub get
+```
 
-Quick Start
+---
 
-1. Setup Firebase 
-Follow the Firebase setup guide for your platform.
+## Quick Start
 
-2. Initialize in your app
+### 1. Setup Firebase
 
+Follow the [Firebase setup guide](https://firebase.google.com/docs/flutter/setup) for your platform. This generates `firebase_options.dart`.
+
+### 2. Initialize in main()
+
+```dart
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -67,20 +77,22 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize ScreenUtil
   await ScreenUtil.ensureScreenSize();
-  
+
   // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  
+
   runApp(const ProviderScope(child: MyApp()));
 }
+```
 
-3. Configure Router
+### 3. Configure Router
 
+```dart
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
@@ -114,7 +126,7 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Home'),
@@ -136,84 +148,81 @@ class HomePage extends ConsumerWidget {
     );
   }
 }
+```
 
+---
 
-API Reference
+## Providers
 
-Authentication State Provider (authStateProvider)
+### authStateProvider
 
 The main provider for authentication state. Watch this to get all auth-related information.
 
+```dart
 final authState = ref.watch(authStateProvider);
+```
 
-
-## Authentication State Properties
-
-## Authentication State Properties
-
-### Auth State
+#### Auth State Properties
 
 | Property | Type | Description |
-|----------|------|-------------|
-| `status` | AuthStatus | Current authentication status (initial, loading, authenticated, unauthenticated, error) |
-| `isAuthenticated` | bool | true if user is logged in |
-| `isLoading` | bool | true if authentication is in progress |
-| `isUnauthenticated` | bool | true if user is not logged in |
-| `user` | UserModel? | Current user data or null |
-| `errorMessage` | String? | Error message if authentication failed |
+|---|---|---|
+| `status` | `AuthStatus` | Current auth status (`initial`, `loading`, `authenticated`, `unauthenticated`, `error`) |
+| `isAuthenticated` | `bool` | `true` if user is logged in |
+| `isLoading` | `bool` | `true` if authentication is in progress |
+| `isUnauthenticated` | `bool` | `true` if user is not logged in |
+| `user` | `UserModel?` | Current user data or `null` |
+| `errorMessage` | `String?` | Error message if authentication failed |
 
-### User Details (from `authState.user`)
+#### User Properties (`authState.user`)
 
 | Property | Type | Description |
-|----------|------|-------------|
-| `uid` | String | Unique user ID |
-| `phoneNumber` | String? | User's phone number |
-| `email` | String? | User's email address |
-| `displayName` | String? | User's display name |
-| `photoURL` | String? | User's photo URL |
-| `creationTime` | DateTime? | Account creation time |
-| `lastSignInTime` | DateTime? | Last login time |
-| `isEmailVerified` | bool | Email verification status |
-| `isPhoneVerified` | bool | Phone verification status |
+|---|---|---|
+| `uid` | `String` | Unique user ID |
+| `phoneNumber` | `String?` | User's phone number |
+| `email` | `String?` | User's email address |
+| `displayName` | `String?` | User's display name |
+| `photoURL` | `String?` | User's photo URL |
+| `creationTime` | `DateTime?` | Account creation time |
+| `lastSignInTime` | `DateTime?` | Last login time |
+| `isEmailVerified` | `bool` | Email verification status |
+| `isPhoneVerified` | `bool` | Phone verification status |
 
-
-Usage Example
-
+```dart
 Widget build(BuildContext context, WidgetRef ref) {
   final authState = ref.watch(authStateProvider);
-  
-  // Check if user is logged in
+
   if (authState.isAuthenticated) {
     return Text('Welcome ${authState.user?.phoneNumber}');
   }
-  
-  // Show loading indicator
+
   if (authState.isLoading) {
     return const CircularProgressIndicator();
   }
-  
-  // Show error
+
   if (authState.errorMessage != null) {
     return Text('Error: ${authState.errorMessage}');
   }
-  
+
   return const Text('Please login');
 }
+```
 
-Current User Provider (currentUserProvider)
-A simplified provider that only returns the current user.
+---
 
+### currentUserProvider
+
+A simplified provider that returns only the current user.
+
+```dart
 final user = ref.watch(currentUserProvider);
+```
 
-Usage Examples:
-
+```dart
 Widget build(BuildContext context, WidgetRef ref) {
   final user = ref.watch(currentUserProvider);
-  
-  if (user == null) {
-    return const Text('Not logged in');
-  }
-  
+
+  if (user == null) return const Text('Not logged in');
+
   return Column(
     children: [
       Text('Phone: ${user.phoneNumber}'),
@@ -224,53 +233,58 @@ Widget build(BuildContext context, WidgetRef ref) {
     ],
   );
 }
+```
 
-Authentication Status Provider (isAuthenticatedProvider)
+---
+
+### isAuthenticatedProvider
 
 A simple boolean provider for authentication status.
 
-
+```dart
 final isAuthenticated = ref.watch(isAuthenticatedProvider);
 // Returns: true if user is logged in, false otherwise
+```
 
-Usage Examples:
-
+```dart
 Widget build(BuildContext context, WidgetRef ref) {
   final isAuthenticated = ref.watch(isAuthenticatedProvider);
-  
-  return isAuthenticated 
+
+  return isAuthenticated
       ? const Text('Welcome back!')
       : const Text('Please login');
 }
+```
 
-Phone Authentication Provider (phoneAuthProvider)
+---
+
+### phoneAuthProvider
 
 Manages phone authentication state during the OTP process.
 
+```dart
 final phoneAuth = ref.watch(phoneAuthProvider);
+```
 
-## OTP / Verification State Properties
+#### OTP / Verification State Properties
 
 | Property | Type | Description |
-|----------|------|-------------|
-| `phoneNumber` | String? | Entered phone number |
-| `verificationId` | String? | Firebase verification ID |
-| `otpCode` | String? | Entered OTP code |
-| `isCodeSent` | bool | Whether verification code was sent |
-| `isLoading` | bool | Whether loading is in progress |
-| `error` | String? | Error message if any |
-| `resendToken` | int? | Resend token for Firebase |
+|---|---|---|
+| `phoneNumber` | `String?` | Entered phone number |
+| `verificationId` | `String?` | Firebase verification ID |
+| `otpCode` | `String?` | Entered OTP code |
+| `isCodeSent` | `bool` | Whether the verification code was sent |
+| `isLoading` | `bool` | Whether loading is in progress |
+| `error` | `String?` | Error message if any |
+| `resendToken` | `int?` | Resend token for Firebase |
 
-
-Usage Examples:
-
+```dart
 Widget build(BuildContext context, WidgetRef ref) {
   final phoneAuth = ref.watch(phoneAuthProvider);
-  
+
   return Column(
     children: [
-      if (phoneAuth.isLoading) 
-        const CircularProgressIndicator(),
+      if (phoneAuth.isLoading) const CircularProgressIndicator(),
       if (phoneAuth.error != null)
         Text('Error: ${phoneAuth.error}', style: TextStyle(color: Colors.red)),
       if (phoneAuth.isCodeSent)
@@ -280,25 +294,25 @@ Widget build(BuildContext context, WidgetRef ref) {
     ],
   );
 }
+```
 
-Methods (Notifiers)
+---
 
-Auth State Notifier Methods
+## Methods (Notifiers)
 
-Get the notifier:
+### Auth State Notifier
 
+```dart
 final authNotifier = ref.read(authStateProvider.notifier);
+```
 
-## Authentication Methods
+| Method | Returns | Description |
+|---|---|---|
+| `signOut()` | `Future<void>` | Signs out the current user |
+| `setLoading()` | `void` | Sets loading state |
+| `setError(String msg)` | `void` | Sets error message |
 
-| Method | Description | Returns |
-|--------|-------------|---------|
-| `signOut()` | Signs out the current user | `Future<void>` |
-| `setLoading()` | Sets loading state | `void` |
-| `setError(String msg)` | Sets error message | `void` |
-
-Usage Examples:
-
+```dart
 // Sign out user
 await ref.read(authStateProvider.notifier).signOut();
 
@@ -312,74 +326,94 @@ ref.read(authStateProvider.notifier).setError('Authentication failed');
 if (context.mounted) {
   context.go('/login');
 }
+```
 
-Phone Auth Notifier Methods
+---
 
-Get the notifier:
+### Phone Auth Notifier
 
+```dart
 final phoneNotifier = ref.read(phoneAuthProvider.notifier);
+```
 
-## Phone Auth Methods
+| Method | Returns | Description |
+|---|---|---|
+| `setPhoneNumber(String number)` | `void` | Sets the phone number |
+| `setVerificationId(String id)` | `void` | Sets the Firebase verification ID |
+| `setLoading(bool loading)` | `void` | Sets the loading state |
+| `setError(String error)` | `void` | Sets an error message |
+| `clearError()` | `void` | Clears the current error |
+| `reset()` | `void` | Resets all phone auth state |
+| `setOtp(String otp)` | `void` | Sets the OTP code |
 
-| Method | Description | Returns |
-|--------|-------------|---------|
-| `setPhoneNumber(String number)` | Sets phone number | `void` |
-| `setVerificationId(String id)` | Sets verification ID | `void` |
-| `setLoading(bool loading)` | Sets loading state | `void` |
-| `setError(String error)` | Sets error message | `void` |
-| `clearError()` | Clears error message | `void` |
-| `reset()` | Resets all phone auth state | `void` |
-| `setOtp(String otp)` | Sets OTP code | `void` |
-
-Usage Examples:
-
-// Set phone number
+```dart
 ref.read(phoneAuthProvider.notifier).setPhoneNumber('+1234567890');
-
-// Set verification ID from Firebase
 ref.read(phoneAuthProvider.notifier).setVerificationId('verification_id_here');
-
-// Set loading state
 ref.read(phoneAuthProvider.notifier).setLoading(true);
-
-// Set error message
 ref.read(phoneAuthProvider.notifier).setError('Invalid phone number');
-
-// Clear error
 ref.read(phoneAuthProvider.notifier).clearError();
-
-// Reset all state (use after OTP verification)
-ref.read(phoneAuthProvider.notifier).reset();
-
-// Set OTP code
+ref.read(phoneAuthProvider.notifier).reset(); // use after OTP verification
 ref.read(phoneAuthProvider.notifier).setOtp('123456');
+```
 
+---
 
-Complete Usage Examples
+## AuthStatus Enum
 
-1. Check Authentication Status
+| Value | Description |
+|---|---|
+| `AuthStatus.initial` | Initial state, not yet checked |
+| `AuthStatus.loading` | Loading — verifying or signing in |
+| `AuthStatus.authenticated` | User is authenticated |
+| `AuthStatus.unauthenticated` | User is not authenticated |
+| `AuthStatus.error` | An error occurred |
 
+```dart
+final authState = ref.watch(authStateProvider);
 
+switch (authState.status) {
+  case AuthStatus.initial:
+    return const Text('Initializing...');
+  case AuthStatus.loading:
+    return const CircularProgressIndicator();
+  case AuthStatus.authenticated:
+    return Text('Welcome ${authState.user?.phoneNumber}');
+  case AuthStatus.unauthenticated:
+    return const Text('Please login');
+  case AuthStatus.error:
+    return Text('Error: ${authState.errorMessage}');
+}
+```
+
+---
+
+## Usage Examples
+
+### 1. Check Authentication Status
+
+```dart
 Widget build(BuildContext context, WidgetRef ref) {
   final isAuthenticated = ref.watch(isAuthenticatedProvider);
   final authState = ref.watch(authStateProvider);
-  
+
   if (authState.isLoading) {
     return const Center(child: CircularProgressIndicator());
   }
-  
+
   if (isAuthenticated) {
     return Center(child: Text('Welcome ${authState.user?.phoneNumber}'));
   }
-  
+
   return const Center(child: Text('Please login'));
 }
+```
 
-2. Get User Information
+### 2. Get User Information
 
+```dart
 Widget build(BuildContext context, WidgetRef ref) {
   final user = ref.watch(currentUserProvider);
-  
+
   return Card(
     margin: const EdgeInsets.all(16),
     child: Padding(
@@ -387,27 +421,25 @@ Widget build(BuildContext context, WidgetRef ref) {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('UID: ${user?.uid ?? "N/A"}', style: const TextStyle(fontSize: 16)),
-          const SizedBox(height: 8),
-          Text('Phone: ${user?.phoneNumber ?? "N/A"}', style: const TextStyle(fontSize: 16)),
-          const SizedBox(height: 8),
-          Text('Email: ${user?.email ?? "N/A"}', style: const TextStyle(fontSize: 16)),
-          const SizedBox(height: 8),
-          Text('Name: ${user?.displayName ?? "N/A"}', style: const TextStyle(fontSize: 16)),
-          const SizedBox(height: 8),
-          Text('Phone Verified: ${user?.isPhoneVerified}', style: const TextStyle(fontSize: 14)),
-          Text('Email Verified: ${user?.isEmailVerified}', style: const TextStyle(fontSize: 14)),
+          Text('UID: ${user?.uid ?? "N/A"}'),
+          Text('Phone: ${user?.phoneNumber ?? "N/A"}'),
+          Text('Email: ${user?.email ?? "N/A"}'),
+          Text('Name: ${user?.displayName ?? "N/A"}'),
+          Text('Phone Verified: ${user?.isPhoneVerified}'),
+          Text('Email Verified: ${user?.isEmailVerified}'),
         ],
       ),
     ),
   );
 }
+```
 
-3. Handle Loading and Error States
+### 3. Handle Loading and Error States
 
+```dart
 Widget build(BuildContext context, WidgetRef ref) {
   final authState = ref.watch(authStateProvider);
-  
+
   switch (authState.status) {
     case AuthStatus.loading:
       return const Center(
@@ -420,7 +452,7 @@ Widget build(BuildContext context, WidgetRef ref) {
           ],
         ),
       );
-      
+
     case AuthStatus.authenticated:
       return Center(
         child: Column(
@@ -432,7 +464,7 @@ Widget build(BuildContext context, WidgetRef ref) {
           ],
         ),
       );
-      
+
     case AuthStatus.error:
       return Center(
         child: Column(
@@ -443,22 +475,22 @@ Widget build(BuildContext context, WidgetRef ref) {
             Text('Error: ${authState.errorMessage}'),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () {
-                // Retry logic
-              },
+              onPressed: () { /* retry logic */ },
               child: const Text('Retry'),
             ),
           ],
         ),
       );
-      
+
     default:
       return const Center(child: Text('Please login'));
   }
 }
+```
 
-4. Listen to Authentication Changes
+### 4. Listen to Authentication Changes
 
+```dart
 class MyWidget extends ConsumerStatefulWidget {
   const MyWidget({super.key});
 
@@ -470,16 +502,13 @@ class _MyWidgetState extends ConsumerState<MyWidget> {
   @override
   void initState() {
     super.initState();
-    
-    // Listen to auth changes
+
     ref.listen(authStateProvider, (previous, next) {
       if (next.isAuthenticated) {
-        print('User logged in: ${next.user?.phoneNumber}');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Logged in successfully!')),
         );
       } else if (next.isUnauthenticated) {
-        print('User logged out');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Logged out')),
         );
@@ -492,22 +521,21 @@ class _MyWidgetState extends ConsumerState<MyWidget> {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
     return Scaffold(
-      body: Center(
-        child: Text('Status: ${authState.status}'),
-      ),
+      body: Center(child: Text('Status: ${authState.status}')),
     );
   }
 }
+```
 
-5. Sign Out with Confirmation
+### 5. Sign Out with Confirmation
 
+```dart
 Widget build(BuildContext context, WidgetRef ref) {
   return ElevatedButton(
     onPressed: () async {
-      // Show confirmation dialog
       final shouldSignOut = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -526,12 +554,10 @@ Widget build(BuildContext context, WidgetRef ref) {
           ],
         ),
       );
-      
+
       if (shouldSignOut == true) {
         await ref.read(authStateProvider.notifier).signOut();
-        if (context.mounted) {
-          context.go('/login');
-        }
+        if (context.mounted) context.go('/login');
       }
     },
     style: ElevatedButton.styleFrom(
@@ -541,17 +567,18 @@ Widget build(BuildContext context, WidgetRef ref) {
     child: const Text('Sign Out'),
   );
 }
+```
 
-6. Phone Authentication State
+### 6. Phone Authentication State
 
+```dart
 Widget build(BuildContext context, WidgetRef ref) {
   final phoneAuth = ref.watch(phoneAuthProvider);
-  
+
   return Column(
     children: [
-      if (phoneAuth.isLoading)
-        const LinearProgressIndicator(),
-        
+      if (phoneAuth.isLoading) const LinearProgressIndicator(),
+
       if (phoneAuth.error != null)
         Container(
           padding: const EdgeInsets.all(12),
@@ -561,12 +588,9 @@ Widget build(BuildContext context, WidgetRef ref) {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.red),
           ),
-          child: Text(
-            phoneAuth.error!,
-            style: const TextStyle(color: Colors.red),
-          ),
+          child: Text(phoneAuth.error!, style: const TextStyle(color: Colors.red)),
         ),
-        
+
       if (phoneAuth.isCodeSent)
         Container(
           padding: const EdgeInsets.all(12),
@@ -583,7 +607,7 @@ Widget build(BuildContext context, WidgetRef ref) {
             ],
           ),
         ),
-        
+
       const SizedBox(height: 16),
       Text('Phone: ${phoneAuth.phoneNumber ?? "Not set"}'),
       Text('Code Sent: ${phoneAuth.isCodeSent}'),
@@ -591,27 +615,28 @@ Widget build(BuildContext context, WidgetRef ref) {
     ],
   );
 }
+```
 
-7. Protected Route Example
+### 7. Protected Route
 
+```dart
 class ProtectedRoute extends ConsumerWidget {
   final Widget child;
-  
+
   const ProtectedRoute({super.key, required this.child});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
     final authState = ref.watch(authStateProvider);
-    
+
     if (authState.isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
-    
+
     if (!isAuthenticated) {
-      // Redirect to login
       WidgetsBinding.instance.addPostFrameCallback((_) {
         context.pushReplacement('/login');
       });
@@ -619,23 +644,21 @@ class ProtectedRoute extends ConsumerWidget {
         body: Center(child: CircularProgressIndicator()),
       );
     }
-    
+
     return child;
   }
 }
 
-// Usage:
-// In your router:
+// Usage in router:
 GoRoute(
   path: '/profile',
-  builder: (context, state) => const ProtectedRoute(
-    child: ProfilePage(),
-  ),
+  builder: (context, state) => const ProtectedRoute(child: ProfilePage()),
 ),
+```
 
+### 8. Complete App with Custom Router
 
-8. Complete App with Custom Router
-
+```dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -647,22 +670,16 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
-    
+
     final router = GoRouter(
       initialLocation: '/login',
       redirect: (context, state) {
         final isAuthenticated = authState.isAuthenticated;
         final isLoginRoute = state.matchedLocation == '/login';
         final isOtpRoute = state.matchedLocation == '/otp';
-        
-        if (isAuthenticated && (isLoginRoute || isOtpRoute)) {
-          return '/home';
-        }
-        
-        if (!isAuthenticated && state.matchedLocation == '/home') {
-          return '/login';
-        }
-        
+
+        if (isAuthenticated && (isLoginRoute || isOtpRoute)) return '/home';
+        if (!isAuthenticated && state.matchedLocation == '/home') return '/login';
         return null;
       },
       routes: [
@@ -699,209 +716,94 @@ class MyApp extends ConsumerWidget {
     );
   }
 }
+```
 
-## AuthStatus Enum
+---
 
-| Value | Description |
-|-------|-------------|
-| `AuthStatus.initial` | Initial state, not authenticated |
-| `AuthStatus.loading` | Loading (verifying or signing in) |
-| `AuthStatus.authenticated` | User is authenticated |
-| `AuthStatus.unauthenticated` | User is not authenticated |
-| `AuthStatus.error` | Error occurred |
+## Firestore Security Rules
 
-Usage:
-
-final authState = ref.watch(authStateProvider);
-
-switch (authState.status) {
-  case AuthStatus.initial:
-    return const Text('Initializing...');
-  case AuthStatus.loading:
-    return const CircularProgressIndicator();
-  case AuthStatus.authenticated:
-    return Text('Welcome ${authState.user?.phoneNumber}');
-  case AuthStatus.unauthenticated:
-    return const Text('Please login');
-  case AuthStatus.error:
-    return Text('Error: ${authState.errorMessage}');
-}
-
-Quick Reference Card
-
-// Most commonly used - Copy these!
-
-// 1. Check if user is logged in
-final isAuth = ref.watch(isAuthenticatedProvider);
-
-// 2. Get current user
-final user = ref.watch(currentUserProvider);
-
-// 3. Get full auth state
-final authState = ref.watch(authStateProvider);
-
-// 4. Auth state checks
-authState.isAuthenticated     // bool
-authState.isLoading          // bool
-authState.status             // AuthStatus enum
-
-// 5. User data (from authState.user or currentUserProvider)
-user?.uid                    // String
-user?.phoneNumber           // String?
-user?.email                 // String?
-user?.displayName           // String?
-user?.photoURL              // String?
-user?.creationTime          // DateTime?
-user?.lastSignInTime        // DateTime?
-user?.isEmailVerified       // bool
-user?.isPhoneVerified       // bool
-
-// 6. Phone auth state
-final phoneAuth = ref.watch(phoneAuthProvider);
-phoneAuth.phoneNumber        // String?
-phoneAuth.verificationId     // String?
-phoneAuth.isCodeSent         // bool
-phoneAuth.isLoading          // bool
-phoneAuth.error              // String?
-
-// 7. Actions
-await ref.read(authStateProvider.notifier).signOut();
-
-// 8. Navigation after sign out
-context.go('/login');
-context.pushReplacement('/login');
-
-
-
-Firestore Security Rules
-
+```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function: Check if user is authenticated
+
+    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    // Helper function: Get user's role from users collection
+
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userType;
     }
-    
-    // Helper function: Check if user is vendor
-    function isVendor() {
-      return getUserRole() == 'vendor';
-    }
-    
-    // Helper function: Check if user is admin
-    function isAdmin() {
-      return getUserRole() == 'admin';
-    }
-    
-    // Helper function: Check if user is customer
-    function isCustomer() {
-      return getUserRole() == 'customer';
-    }
-    
-    // Helper function: Check if user owns the document
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-    
-    // ============================================
-    // USERS COLLECTION - Anyone can read, only owner can write
-    // ============================================
+
+    function isVendor()   { return getUserRole() == 'vendor'; }
+    function isAdmin()    { return getUserRole() == 'admin'; }
+    function isCustomer() { return getUserRole() == 'customer'; }
+    function isOwner(userId) { return request.auth.uid == userId; }
+
+    // Users — authenticated users can read; only owner can write
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      allow read:  if isAuthenticated();
       allow write: if isAuthenticated() && isOwner(userId);
     }
-    
-    // ============================================
-    // VENDORS COLLECTION - Vendor specific data
-    // ============================================
+
+    // Vendors — any authenticated user can register; only owner or admin can update; only admin can delete
     match /vendors/{vendorId} {
-      // Read: Anyone authenticated can read vendor details
-      allow read: if isAuthenticated();
-      
-      // Create: Any authenticated user can register as vendor
+      allow read:   if isAuthenticated();
       allow create: if isAuthenticated();
-      
-      // Update: Only the vendor themselves OR admin
       allow update: if isAuthenticated() && (isOwner(vendorId) || isAdmin());
-      
-      // Delete: Only admin
       allow delete: if isAuthenticated() && isAdmin();
     }
-    
-    // ============================================
-    // PRODUCTS COLLECTION - Vendor products
-    // ============================================
+
+    // Products — only vendors can create; vendor who owns it or admin can update/delete
     match /products/{productId} {
-      // Read: Anyone authenticated can view products
-      allow read: if isAuthenticated();
-      
-      // Create: Only vendors can create products
+      allow read:   if isAuthenticated();
       allow create: if isAuthenticated() && isVendor();
-      
-      // Update: Only the vendor who owns this product
-      allow update: if isAuthenticated() && 
+      allow update: if isAuthenticated() &&
         (isVendor() && resource.data.vendorId == request.auth.uid) || isAdmin();
-      
-      // Delete: Only vendor who owns it or admin
-      allow delete: if isAuthenticated() && 
+      allow delete: if isAuthenticated() &&
         (isVendor() && resource.data.vendorId == request.auth.uid) || isAdmin();
     }
-    
-    // ============================================
-    // ORDERS COLLECTION - Customer orders
-    // ============================================
+
+    // Orders — customer, vendor, or admin can read relevant orders; only customers can create
     match /orders/{orderId} {
-      // Read: Customer can read their own orders, Vendors can read orders for their products
       allow read: if isAuthenticated() && (
-        resource.data.customerId == request.auth.uid ||  // Customer's own orders
-        isVendor() && resource.data.vendorId == request.auth.uid ||  // Vendor's orders
+        resource.data.customerId == request.auth.uid ||
+        isVendor() && resource.data.vendorId == request.auth.uid ||
         isAdmin()
       );
-      
-      // Create: Only customers can create orders
       allow create: if isAuthenticated() && isCustomer();
-      
-      // Update: Customer can update their own orders (before shipping), Vendor can update status
       allow update: if isAuthenticated() && (
         (isCustomer() && resource.data.customerId == request.auth.uid) ||
-        (isVendor() && resource.data.vendorId == request.auth.uid) ||
+        (isVendor()   && resource.data.vendorId == request.auth.uid) ||
         isAdmin()
       );
     }
-    
-    // ============================================
-    // REVIEWS COLLECTION - Product reviews
-    // ============================================
+
+    // Reviews — anyone authenticated can read; only customers can create; owner or admin can edit/delete
     match /reviews/{reviewId} {
-      // Read: Anyone authenticated can read reviews
-      allow read: if isAuthenticated();
-      
-      // Create: Only customers who purchased can review
-      allow create: if isAuthenticated() && isCustomer();
-      
-      // Update/Delete: Only review owner or admin
-      allow update, delete: if isAuthenticated() && 
+      allow read:          if isAuthenticated();
+      allow create:        if isAuthenticated() && isCustomer();
+      allow update, delete: if isAuthenticated() &&
         (isOwner(resource.data.userId) || isAdmin());
     }
-    
-    // ============================================
-    // CATEGORIES COLLECTION - Public read, admin write
-    // ============================================
+
+    // Categories — authenticated read; only admin can write
     match /categories/{categoryId} {
-      allow read: if isAuthenticated();
+      allow read:  if isAuthenticated();
       allow write: if isAuthenticated() && isAdmin();
     }
   }
 }
+```
 
-User Service to Manage User Type
+---
 
+## User Roles & Services
+
+### UserService
+
+```dart
 // lib/services/user_service.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -911,87 +813,118 @@ class UserService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Create/Update user document after login
+  /// Create or update a user document with a role type.
+  /// [userType] accepts: 'customer', 'vendor', 'admin'
   Future<void> setUserType(String userId, String userType) async {
     await _firestore.collection('users').doc(userId).set({
       'userId': userId,
       'phoneNumber': _auth.currentUser?.phoneNumber,
-      'userType': userType, // 'customer', 'vendor', 'admin'
+      'userType': userType,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 
-  // Check if current user is vendor
+  /// Returns true if the current user has the 'vendor' role.
   Future<bool> isVendor() async {
     final user = _auth.currentUser;
     if (user == null) return false;
-    
     final doc = await _firestore.collection('users').doc(user.uid).get();
     return doc.data()?['userType'] == 'vendor';
   }
 
-  // Get user type
+  /// Returns the userType string, or 'customer' if unset, or 'none' if not logged in.
   Future<String> getUserType() async {
     final user = _auth.currentUser;
     if (user == null) return 'none';
-    
     final doc = await _firestore.collection('users').doc(user.uid).get();
     return doc.data()?['userType'] ?? 'customer';
   }
 }
+```
 
-After Login - Set User Type
+---
 
-// In your phone_screen.dart or main.dart after successful login
+### Riverpod Providers for User Type
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+```dart
+// lib/providers/user_provider.dart
 
-// After FirebaseAuth sign in
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/user_service.dart';
+
+final userTypeProvider = FutureProvider<String>((ref) async {
+  return await UserService().getUserType();
+});
+
+final isVendorProvider = FutureProvider<bool>((ref) async {
+  return await UserService().isVendor();
+});
+
+/// Auto-refreshes when auth state changes
+final vendorStatusProvider = Provider<bool>((ref) {
+  final authState = ref.watch(authStateProvider);
+  final isVendorAsync = ref.watch(isVendorProvider);
+
+  return isVendorAsync.when(
+    data: (isVendor) => isVendor,
+    loading: () => false,
+    error: (_, __) => false,
+  );
+});
+```
+
+---
+
+### After Login — Set User Type
+
+```dart
 Future<void> handleSuccessfulLogin(UserCredential credential) async {
   final user = credential.user;
   if (user != null) {
-    // Check if user document exists
     final userDoc = await FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
         .get();
-    
+
     if (!userDoc.exists) {
-      // First time login - create as customer
+      // First-time login — default to customer
       await UserService().setUserType(user.uid, 'customer');
     }
   }
 }
+```
 
-Vendor Registration - Create Vendor Document
+---
 
-// lib/screens/register_vendor.dart
+### Vendor Registration
 
+```dart
 Future<void> registerAsVendor() async {
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) return;
-  
-  // Update user type to vendor
+
+  // Update user role to vendor
   await UserService().setUserType(user.uid, 'vendor');
-  
+
   // Create vendor document
   await FirebaseFirestore.instance.collection('vendors').doc(user.uid).set({
     'vendorId': user.uid,
     'businessName': businessName,
     'phoneNumber': user.phoneNumber,
-    'status': 'approved', // or 'pending'
+    'status': 'approved', // or 'pending' for manual review
     'createdAt': FieldValue.serverTimestamp(),
     'totalProducts': 0,
     'rating': 0,
   });
 }
+```
 
+---
 
-Vendor-Only Actions
+### Vendor-Only Actions
 
-// lib/screens/add_product.dart - Only vendors can add products
-
+```dart
 class AddProductScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1001,7 +934,7 @@ class AddProductScreen extends ConsumerWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
-        
+
         if (snapshot.data != true) {
           return Scaffold(
             body: Center(
@@ -1020,7 +953,7 @@ class AddProductScreen extends ConsumerWidget {
             ),
           );
         }
-        
+
         return _AddProductForm();
       },
     );
@@ -1036,9 +969,7 @@ class _AddProductForm extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            TextFormField(
-              decoration: const InputDecoration(labelText: 'Product Name'),
-            ),
+            TextFormField(decoration: const InputDecoration(labelText: 'Product Name')),
             const SizedBox(height: 16),
             TextFormField(
               decoration: const InputDecoration(labelText: 'Price'),
@@ -1053,7 +984,6 @@ class _AddProductForm extends StatelessWidget {
             ElevatedButton(
               onPressed: () async {
                 final user = FirebaseAuth.instance.currentUser;
-                
                 // Security rules will verify this is a vendor
                 await FirebaseFirestore.instance.collection('products').add({
                   'name': 'Product Name',
@@ -1062,7 +992,6 @@ class _AddProductForm extends StatelessWidget {
                   'vendorId': user!.uid,
                   'createdAt': FieldValue.serverTimestamp(),
                 });
-                
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Product added!')),
                 );
@@ -1075,66 +1004,165 @@ class _AddProductForm extends StatelessWidget {
     );
   }
 }
+```
 
-Riverpod Provider for User Type
+---
 
-// lib/providers/user_provider.dart
+## Custom Router (Manual Setup)
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/user_service.dart';
+If you build your own router instead of using `AuthRouter.createRouter()`, you **must** wire up `RouterNotifier` manually:
 
-final userTypeProvider = FutureProvider<String>((ref) async {
-  return await UserService().getUserType();
-});
-
-final isVendorProvider = FutureProvider<bool>((ref) async {
-  return await UserService().isVendor();
-});
-
-// Auto-refresh when auth state changes
-final vendorStatusProvider = Provider<bool>((ref) {
-  final authState = ref.watch(authStateProvider);
-  final isVendorAsync = ref.watch(isVendorProvider);
-  
-  return isVendorAsync.when(
-    data: (isVendor) => isVendor,
-    loading: () => false,
-    error: (_, __) => false,
-  );
-});
-
-
-Creating Custom Router Manually:
-
-If you create your own router manually (not using AuthRouter.createRouter()), then you do need to add it:
-
-// Only needed if you make your own router
+```dart
 class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final routerNotifier = RouterNotifier(ref);  // Create it
-    
+    final routerNotifier = RouterNotifier(ref);
+
     final router = GoRouter(
       initialLocation: '/phone',
-      refreshListenable: routerNotifier,  // YOU MUST ADD THIS
-      redirect: routerNotifier.redirect,   // YOU MUST ADD THIS
+      refreshListenable: routerNotifier, // REQUIRED
+      redirect: routerNotifier.redirect, // REQUIRED
       routes: [
-        // Your routes
+        // Your routes here
       ],
     );
-    
+
     return MaterialApp.router(routerConfig: router);
   }
 }
+```
 
-Need Help?
-📚 Full Documentation
+> **Note:** Omitting `refreshListenable` and `redirect` means the router will not react to auth state changes automatically.
 
-💡 Report Issues
+---
 
-⭐ Star on GitHub
+## Quick Reference Card
 
-License
-MIT License - see LICENSE file for details.
+```dart
+// 1. Check if user is logged in
+final isAuth = ref.watch(isAuthenticatedProvider);
 
-Made with ❤️ for the Flutter community
+// 2. Get current user
+final user = ref.watch(currentUserProvider);
+
+// 3. Get full auth state
+final authState = ref.watch(authStateProvider);
+
+// 4. Auth state checks
+authState.isAuthenticated     // bool
+authState.isLoading           // bool
+authState.status              // AuthStatus enum
+
+// 5. User data
+user?.uid                     // String
+user?.phoneNumber             // String?
+user?.email                   // String?
+user?.displayName             // String?
+user?.photoURL                // String?
+user?.creationTime            // DateTime?
+user?.lastSignInTime          // DateTime?
+user?.isEmailVerified         // bool
+user?.isPhoneVerified         // bool
+
+// 6. Phone auth state
+final phoneAuth = ref.watch(phoneAuthProvider);
+phoneAuth.phoneNumber         // String?
+phoneAuth.verificationId      // String?
+phoneAuth.isCodeSent          // bool
+phoneAuth.isLoading           // bool
+phoneAuth.error               // String?
+
+// 7. Sign out
+await ref.read(authStateProvider.notifier).signOut();
+
+// 8. Navigate after sign out
+context.go('/login');
+context.pushReplacement('/login');
+```
+
+---
+
+## Full Manual Control with RouterNotifier
+
+```dart
+  import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:dot_auth/dot_auth.dart';
+
+final routerProvider = Provider<GoRouter>((ref) {
+  // Create RouterNotifier to listen to auth changes
+  final routerNotifier = RouterNotifier(ref);
+  
+  return GoRouter(
+    initialLocation: '/login',
+    refreshListenable: routerNotifier,  // This enables auto-redirect
+    redirect: (context, state) {
+      // Get auth state
+      final authState = ref.read(authStateProvider);
+      final isAuthenticated = authState.isAuthenticated;
+      
+      // Define routes
+      final isLoginRoute = state.matchedLocation == '/login';
+      final isOtpRoute = state.matchedLocation == '/otp';
+      final isHomeRoute = state.matchedLocation == '/home';
+      
+      // Redirect logic
+      if (isAuthenticated && (isLoginRoute || isOtpRoute)) {
+        return '/home';
+      }
+      
+      if (!isAuthenticated && isHomeRoute) {
+        return '/login';
+      }
+      
+      // No redirect needed
+      return null;
+    },
+    routes: [
+      // Auth routes
+      GoRoute(
+        path: '/login',
+        name: 'login',
+        builder: (context, state) => const AuthPhone(),
+      ),
+      GoRoute(
+        path: '/otp',
+        name: 'otp',
+        builder: (context, state) => const OtpScreen(),
+      ),
+      
+      // Protected routes
+      GoRoute(
+        path: '/home',
+        name: 'home',
+        builder: (context, state) => const HomePage(),
+      ),
+      
+      // Add more routes as needed
+      GoRoute(
+        path: '/profile',
+        name: 'profile',
+        builder: (context, state) => const ProfilePage(),
+      ),
+    ],
+  );
+});
+```
+---
+
+## Need Help?
+
+- 📚 [Full Documentation](#)
+- 💡 [Report Issues](#)
+- ⭐ [Star on GitHub](#)
+
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+*Made with ❤️ for the Flutter community*
