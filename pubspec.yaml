@@ -1,6 +1,6 @@
 name: dot_auth
 description: A powerful Flutter authentication package with phone number OTP verification using Firebase.
-version: 1.0.3
+version: 1.0.4
 homepage: https://github.com/yourusername/dot_auth
 repository: https://github.com/yourusername/dot_auth
 
