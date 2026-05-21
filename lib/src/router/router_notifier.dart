@@ -7,8 +7,7 @@ import '../models/auth_state_model.dart';
 
 class RouterNotifier extends ChangeNotifier {
   final Ref ref;
-  late final ProviderSubscription<AuthStateModel>
-      _authSubscription;
+  late final ProviderSubscription<AuthStateModel> _authSubscription;
 
   RouterNotifier(this.ref) {
     _authSubscription = ref.listen<AuthStateModel>(
@@ -19,19 +18,17 @@ class RouterNotifier extends ChangeNotifier {
     );
   }
 
-  String? redirect(
-      BuildContext context, GoRouterState state) {
+  String? redirect(BuildContext context, GoRouterState state) {
     final authState = ref.read(authStateProvider);
     final isAuthenticated = authState.isAuthenticated;
-    final isAuthPage = state.matchedLocation == '/phone' ||
-        state.matchedLocation == '/otp';
+    final isAuthPage =
+        state.matchedLocation == '/phone' || state.matchedLocation == '/otp';
 
     if (isAuthenticated && isAuthPage) {
       return '/home';
     }
 
-    if (!isAuthenticated &&
-        state.matchedLocation == '/home') {
+    if (!isAuthenticated && state.matchedLocation == '/home') {
       return '/phone';
     }
 
