@@ -1,3 +1,16 @@
+## 1.0.12
+- Updated all dependencies to latest versions
+- firebase_auth: ^6.5.1
+- firebase_core: ^4.9.0
+- go_router: ^17.2.3
+- flutter_riverpod: ^3.3.1
+- phone_form_field: ^10.0.17
+- pinput: ^6.0.2
+- google_fonts: ^8.1.0
+- Fixed StateNotifier import
+- Improved compatibility
+- Added Timers 
+
 ## 1.0.11
 - Updated all dependencies to latest versions
 - firebase_auth: ^6.5.1

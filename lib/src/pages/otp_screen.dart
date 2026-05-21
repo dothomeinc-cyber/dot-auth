@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -11,12 +12,49 @@ class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key});
 
   @override
-  ConsumerState<OtpScreen> createState() => _OtpScreenState();
+  ConsumerState<OtpScreen> createState() =>
+      _OtpScreenState();
 }
 
 class _OtpScreenState extends ConsumerState<OtpScreen> {
   bool _isLoading = false;
   String? _errorMessage;
+  int _secondsRemaining = 30;
+  Timer? _timer;
+  bool _canResend = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    setState(() {
+      _secondsRemaining = 30;
+      _canResend = false;
+    });
+    _timer =
+        Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_secondsRemaining > 0) {
+        setState(() {
+          _secondsRemaining--;
+        });
+      } else {
+        _timer?.cancel();
+        setState(() {
+          _canResend = true;
+        });
+      }
+    });
+  }
 
   Future<void> _verifyOtp(String otpCode) async {
     if (otpCode.length != 6) return;
@@ -26,7 +64,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
     if (verificationId == null) {
       setState(() {
-        _errorMessage = 'Verification failed. Please try again.';
+        _errorMessage =
+            'Verification failed. Please try again.';
       });
       return;
     }
@@ -42,7 +81,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         smsCode: otpCode,
       );
 
-      await FirebaseAuth.instance.signInWithCredential(credential);
+      await FirebaseAuth.instance
+          .signInWithCredential(credential);
 
       if (mounted) {
         ref.read(phoneAuthProvider.notifier).reset();
@@ -50,20 +90,25 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       }
     } on FirebaseAuthException catch (e) {
       setState(() {
-        _errorMessage = e.message ?? 'Invalid verification code';
+        _errorMessage =
+            e.message ?? 'Invalid verification code';
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'An error occurred. Please try again.';
+        _errorMessage =
+            'An error occurred. Please try again.';
         _isLoading = false;
       });
     }
   }
 
   void _resendCode() async {
+    if (!_canResend) return;
+
     final phoneAuthState = ref.read(phoneAuthProvider);
     final phoneNumber = phoneAuthState.phoneNumber;
+    final resendToken = phoneAuthState.resendToken;
 
     if (phoneNumber == null) {
       context.go('/phone');
@@ -78,33 +123,45 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     try {
       await FirebaseAuth.instance.verifyPhoneNumber(
         phoneNumber: phoneNumber,
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          await FirebaseAuth.instance.signInWithCredential(credential);
+        forceResendingToken:
+            resendToken, // Use the stored resend token
+        verificationCompleted:
+            (PhoneAuthCredential credential) async {
+          await FirebaseAuth.instance
+              .signInWithCredential(credential);
           if (mounted) {
             context.go('/home');
           }
         },
         verificationFailed: (FirebaseAuthException e) {
           setState(() {
-            _errorMessage = e.message ?? 'Failed to resend code';
+            _errorMessage =
+                e.message ?? 'Failed to resend code';
             _isLoading = false;
           });
         },
-        codeSent: (String verificationId, int? resendToken) {
+        codeSent:
+            (String verificationId, int? newResendToken) {
+          // Update with new verification ID and token
           ref
               .read(phoneAuthProvider.notifier)
-              .setVerificationId(verificationId);
+              .setVerificationData(
+                verificationId,
+                newResendToken,
+              );
           setState(() {
             _isLoading = false;
           });
+          _startTimer(); // Restart timer
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Code resent successfully!'),
-              backgroundColor: AuthColors.success,
+            const SnackBar(
+              content: Text('Code resent successfully!'),
+              backgroundColor: Colors.green,
             ),
           );
         },
-        codeAutoRetrievalTimeout: (String verificationId) {},
+        codeAutoRetrievalTimeout:
+            (String verificationId) {},
       );
     } catch (e) {
       setState(() {
@@ -166,13 +223,18 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 length: 6,
                 defaultPinTheme: defaultPinTheme,
                 focusedPinTheme: defaultPinTheme.copyWith(
-                  decoration: defaultPinTheme.decoration!.copyWith(
-                    border: Border.all(color: AuthColors.black, width: 1.5.w),
+                  decoration:
+                      defaultPinTheme.decoration!.copyWith(
+                    border: Border.all(
+                        color: AuthColors.black,
+                        width: 1.5.w),
                   ),
                 ),
                 errorPinTheme: defaultPinTheme.copyWith(
-                  decoration: defaultPinTheme.decoration!.copyWith(
-                    border: Border.all(color: AuthColors.error),
+                  decoration:
+                      defaultPinTheme.decoration!.copyWith(
+                    border:
+                        Border.all(color: AuthColors.error),
                   ),
                 ),
                 onCompleted: _verifyOtp,
@@ -193,12 +255,28 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             ],
             SizedBox(height: 32.h),
             Center(
-              child: TextButton(
-                onPressed: _isLoading ? null : _resendCode,
-                child: Text(
-                  _isLoading ? 'Sending...' : 'Resend Code',
-                  style: AuthTextStyles.labelM,
-                ),
+              child: Column(
+                children: [
+                  if (!_canResend && _secondsRemaining > 0)
+                    Text(
+                      'Resend code in $_secondsRemaining seconds',
+                      style: AuthTextStyles.bodyM.copyWith(
+                        color: AuthColors.black50,
+                      ),
+                    ),
+                  if (_canResend)
+                    TextButton(
+                      onPressed:
+                          _isLoading ? null : _resendCode,
+                      child: Text(
+                        'Resend Code',
+                        style:
+                            AuthTextStyles.labelM.copyWith(
+                          color: AuthColors.yellow,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ],
