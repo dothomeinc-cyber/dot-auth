@@ -1,4 +1,4 @@
-## 1.0.5
+## 1.0.6
 - Added RouterNotifier for reactive routing
 - Improved auth state redirection
 - Better navigation handling on login/logout
