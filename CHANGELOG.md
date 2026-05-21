@@ -1,3 +1,10 @@
+## 1.0.3
+
+- Updated README with complete API documentation
+- Added role-based access control examples
+- Improved documentation for Firestore integration
+- Fixed typos and formatting
+
 ## 1.0.1
 
 - Fixed null-aware operator warnings

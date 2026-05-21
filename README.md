@@ -735,7 +735,344 @@ await ref.read(authStateProvider.notifier).signOut();
 // 8. Navigation after sign out
 context.go('/login');
 context.pushReplacement('/login');
+
+
+Firestore Security Rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function: Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function: Get user's role from users collection
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userType;
+    }
+    
+    // Helper function: Check if user is vendor
+    function isVendor() {
+      return getUserRole() == 'vendor';
+    }
+    
+    // Helper function: Check if user is admin
+    function isAdmin() {
+      return getUserRole() == 'admin';
+    }
+    
+    // Helper function: Check if user is customer
+    function isCustomer() {
+      return getUserRole() == 'customer';
+    }
+    
+    // Helper function: Check if user owns the document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // ============================================
+    // USERS COLLECTION - Anyone can read, only owner can write
+    // ============================================
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ============================================
+    // VENDORS COLLECTION - Vendor specific data
+    // ============================================
+    match /vendors/{vendorId} {
+      // Read: Anyone authenticated can read vendor details
+      allow read: if isAuthenticated();
+      
+      // Create: Any authenticated user can register as vendor
+      allow create: if isAuthenticated();
+      
+      // Update: Only the vendor themselves OR admin
+      allow update: if isAuthenticated() && (isOwner(vendorId) || isAdmin());
+      
+      // Delete: Only admin
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+    
+    // ============================================
+    // PRODUCTS COLLECTION - Vendor products
+    // ============================================
+    match /products/{productId} {
+      // Read: Anyone authenticated can view products
+      allow read: if isAuthenticated();
+      
+      // Create: Only vendors can create products
+      allow create: if isAuthenticated() && isVendor();
+      
+      // Update: Only the vendor who owns this product
+      allow update: if isAuthenticated() && 
+        (isVendor() && resource.data.vendorId == request.auth.uid) || isAdmin();
+      
+      // Delete: Only vendor who owns it or admin
+      allow delete: if isAuthenticated() && 
+        (isVendor() && resource.data.vendorId == request.auth.uid) || isAdmin();
+    }
+    
+    // ============================================
+    // ORDERS COLLECTION - Customer orders
+    // ============================================
+    match /orders/{orderId} {
+      // Read: Customer can read their own orders, Vendors can read orders for their products
+      allow read: if isAuthenticated() && (
+        resource.data.customerId == request.auth.uid ||  // Customer's own orders
+        isVendor() && resource.data.vendorId == request.auth.uid ||  // Vendor's orders
+        isAdmin()
+      );
+      
+      // Create: Only customers can create orders
+      allow create: if isAuthenticated() && isCustomer();
+      
+      // Update: Customer can update their own orders (before shipping), Vendor can update status
+      allow update: if isAuthenticated() && (
+        (isCustomer() && resource.data.customerId == request.auth.uid) ||
+        (isVendor() && resource.data.vendorId == request.auth.uid) ||
+        isAdmin()
+      );
+    }
+    
+    // ============================================
+    // REVIEWS COLLECTION - Product reviews
+    // ============================================
+    match /reviews/{reviewId} {
+      // Read: Anyone authenticated can read reviews
+      allow read: if isAuthenticated();
+      
+      // Create: Only customers who purchased can review
+      allow create: if isAuthenticated() && isCustomer();
+      
+      // Update/Delete: Only review owner or admin
+      allow update, delete: if isAuthenticated() && 
+        (isOwner(resource.data.userId) || isAdmin());
+    }
+    
+    // ============================================
+    // CATEGORIES COLLECTION - Public read, admin write
+    // ============================================
+    match /categories/{categoryId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isAdmin();
+    }
+  }
+}
+
+
+User Service to Manage User Type
+
+// lib/services/user_service.dart
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+class UserService {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // Create/Update user document after login
+  Future<void> setUserType(String userId, String userType) async {
+    await _firestore.collection('users').doc(userId).set({
+      'userId': userId,
+      'phoneNumber': _auth.currentUser?.phoneNumber,
+      'userType': userType, // 'customer', 'vendor', 'admin'
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  // Check if current user is vendor
+  Future<bool> isVendor() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    return doc.data()?['userType'] == 'vendor';
+  }
+
+  // Get user type
+  Future<String> getUserType() async {
+    final user = _auth.currentUser;
+    if (user == null) return 'none';
+    
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    return doc.data()?['userType'] ?? 'customer';
+  }
+}
+
+After Login -Set User Type
+
+// In your phone_screen.dart or main.dart after successful login
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+// After FirebaseAuth sign in
+Future<void> handleSuccessfulLogin(UserCredential credential) async {
+  final user = credential.user;
+  if (user != null) {
+    // Check if user document exists
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+    
+    if (!userDoc.exists) {
+      // First time login - create as customer
+      await UserService().setUserType(user.uid, 'customer');
+    }
+  }
+}
+
+
+Vendor Registration - create Vendor Document
+// lib/screens/register_vendor.dart
+
+Future<void> registerAsVendor() async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return;
+  
+  // Update user type to vendor
+  await UserService().setUserType(user.uid, 'vendor');
+  
+  // Create vendor document
+  await FirebaseFirestore.instance.collection('vendors').doc(user.uid).set({
+    'vendorId': user.uid,
+    'businessName': businessName,
+    'phoneNumber': user.phoneNumber,
+    'status': 'approved', // or 'pending'
+    'createdAt': FieldValue.serverTimestamp(),
+    'totalProducts': 0,
+    'rating': 0,
+  });
+}
+
+Vendor-Only Actions
+
+// lib/screens/add_product.dart - Only vendors can add products
+
+class AddProductScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FutureBuilder(
+      future: UserService().isVendor(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        
+        if (snapshot.data != true) {
+          return Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.block, size: 64),
+                  const SizedBox(height: 16),
+                  const Text('Only vendors can add products'),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pushNamed(context, '/register-vendor'),
+                    child: const Text('Register as Vendor'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        
+        return _AddProductForm();
+      },
+    );
+  }
+}
+
+class _AddProductForm extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Add Product')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            TextFormField(
+              decoration: const InputDecoration(labelText: 'Product Name'),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              decoration: const InputDecoration(labelText: 'Price'),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              decoration: const InputDecoration(labelText: 'Description'),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () async {
+                final user = FirebaseAuth.instance.currentUser;
+                
+                // Security rules will verify this is a vendor
+                await FirebaseFirestore.instance.collection('products').add({
+                  'name': 'Product Name',
+                  'price': 100,
+                  'description': 'Description',
+                  'vendorId': user!.uid,
+                  'createdAt': FieldValue.serverTimestamp(),
+                });
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Product added!')),
+                );
+              },
+              child: const Text('Add Product'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Riverpod Provider for User Type
+
+
+// lib/providers/user_provider.dart
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/user_service.dart';
+
+final userTypeProvider = FutureProvider<String>((ref) async {
+  return await UserService().getUserType();
+});
+
+final isVendorProvider = FutureProvider<bool>((ref) async {
+  return await UserService().isVendor();
+});
+
+// Auto-refresh when auth state changes
+final vendorStatusProvider = Provider<bool>((ref) {
+  final authState = ref.watch(authStateProvider);
+  final isVendorAsync = ref.watch(isVendorProvider);
+  
+  return isVendorAsync.when(
+    data: (isVendor) => isVendor,
+    loading: () => false,
+    error: (_, __) => false,
+  );
+});
+
+
 Need Help?
+
+
+
 📚 Full Documentation
 
 💡 Report Issues
