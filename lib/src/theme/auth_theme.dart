@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+/// Brand colour palette used across all dot_auth screens.
 class AuthColors {
   AuthColors._();
 
@@ -11,11 +12,18 @@ class AuthColors {
   static const black80 = Color(0xCC0A0A0A);
   static const black50 = Color(0x800A0A0A);
   static const black15 = Color(0x260A0A0A);
+
+  /// Primary yellow — buttons, active links, accents.
   static const yellow = Color(0xFFFFE000);
+
   static const error = Color(0xFFDC2626);
   static const success = Color(0xFF16A34A);
 }
 
+/// Text styles using Google Fonts Urbanist with flutter_screenutil scaling.
+///
+/// Host app must initialise [ScreenUtilInit] with
+/// `designSize: const Size(375, 812)`.
 class AuthTextStyles {
   AuthTextStyles._();
 
@@ -68,6 +76,9 @@ class AuthTextStyles {
       );
 }
 
+/// Returns a [ThemeData] preconfigured with the dot_auth design system.
+///
+/// Apply via `MaterialApp(theme: authTheme())`.
 ThemeData authTheme() {
   return ThemeData(
     useMaterial3: true,
@@ -120,7 +131,17 @@ ThemeData authTheme() {
         borderRadius: BorderRadius.circular(12.r),
         borderSide: const BorderSide(color: AuthColors.error),
       ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12.r),
+        borderSide: BorderSide(color: AuthColors.error, width: 1.5.w),
+      ),
       contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+      labelStyle: AuthTextStyles.bodyM,
+      errorStyle: GoogleFonts.urbanist(
+        fontSize: 11.sp,
+        fontWeight: FontWeight.w500,
+        color: AuthColors.error,
+      ),
     ),
   );
 }

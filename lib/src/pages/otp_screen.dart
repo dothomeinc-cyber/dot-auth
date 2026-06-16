@@ -8,6 +8,16 @@ import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../theme/auth_theme.dart';
 
+/// OTP verification screen — entered after [AuthPhone] sends the SMS.
+///
+/// Features:
+/// - Android auto-verification via Firebase's `verificationCompleted`
+///   callback (fires automatically when Play Services detects the SMS —
+///   no Pinput-level autofill config needed)
+/// - iOS QuickType bar autofill via [AutofillHints.oneTimeCode]
+/// - 30-second resend countdown
+/// - Verification ID and resend token read from [phoneAuthProvider]
+/// - Pin cleared automatically on failed verification
 class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key});
 
@@ -22,6 +32,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   Timer? _timer;
   bool _canResend = false;
 
+  /// Controller allows programmatic clear on failed verification.
+  final _pinController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -31,6 +44,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _pinController.dispose();
     super.dispose();
   }
 
@@ -42,14 +56,10 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     });
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsRemaining > 0) {
-        setState(() {
-          _secondsRemaining--;
-        });
+        setState(() => _secondsRemaining--);
       } else {
         _timer?.cancel();
-        setState(() {
-          _canResend = true;
-        });
+        setState(() => _canResend = true);
       }
     });
   }
@@ -57,13 +67,10 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   Future<void> _verifyOtp(String otpCode) async {
     if (otpCode.length != 6) return;
 
-    final phoneAuthState = ref.read(phoneAuthProvider);
-    final verificationId = phoneAuthState.verificationId;
+    final verificationId = ref.read(phoneAuthProvider).verificationId;
 
     if (verificationId == null) {
-      setState(() {
-        _errorMessage = 'Verification failed. Please try again.';
-      });
+      setState(() => _errorMessage = 'Verification failed. Please try again.');
       return;
     }
 
@@ -77,19 +84,19 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         verificationId: verificationId,
         smsCode: otpCode,
       );
-
       await FirebaseAuth.instance.signInWithCredential(credential);
-
       if (mounted) {
         ref.read(phoneAuthProvider.notifier).reset();
         context.go('/home');
       }
     } on FirebaseAuthException catch (e) {
+      _pinController.clear();
       setState(() {
         _errorMessage = e.message ?? 'Invalid verification code';
         _isLoading = false;
       });
     } catch (e) {
+      _pinController.clear();
       setState(() {
         _errorMessage = 'An error occurred. Please try again.';
         _isLoading = false;
@@ -97,12 +104,11 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     }
   }
 
-  void _resendCode() async {
+  Future<void> _resendCode() async {
     if (!_canResend) return;
 
     final phoneAuthState = ref.read(phoneAuthProvider);
     final phoneNumber = phoneAuthState.phoneNumber;
-    final resendToken = phoneAuthState.resendToken;
 
     if (phoneNumber == null) {
       context.go('/phone');
@@ -114,40 +120,49 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       _errorMessage = null;
     });
 
+    ref.read(phoneAuthProvider.notifier).setLoading(true);
+    ref.read(phoneAuthProvider.notifier).clearError();
+
     try {
       await FirebaseAuth.instance.verifyPhoneNumber(
         phoneNumber: phoneNumber,
-        forceResendingToken: resendToken, // Use the stored resend token
+        // resendToken may be null on first resend — Firebase handles gracefully.
+        forceResendingToken: phoneAuthState.resendToken,
         verificationCompleted: (PhoneAuthCredential credential) async {
           await FirebaseAuth.instance.signInWithCredential(credential);
-          if (mounted) {
-            context.go('/home');
-          }
+          if (mounted) context.go('/home');
         },
         verificationFailed: (FirebaseAuthException e) {
+          ref
+              .read(phoneAuthProvider.notifier)
+              .setError(e.message ?? 'Failed to resend code');
           setState(() {
             _errorMessage = e.message ?? 'Failed to resend code';
             _isLoading = false;
           });
         },
         codeSent: (String verificationId, int? newResendToken) {
-          // Update with new verification ID and token
-          ref.read(phoneAuthProvider.notifier).setVerificationData(
-                verificationId,
-                newResendToken,
-              );
-          setState(() {
-            _isLoading = false;
-          });
-          _startTimer(); // Restart timer
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Code resent successfully!'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          // Store the fresh verificationId and resendToken in the provider.
+          ref
+              .read(phoneAuthProvider.notifier)
+              .setVerificationData(verificationId, newResendToken);
+          setState(() => _isLoading = false);
+          _pinController.clear();
+          _startTimer();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Code resent successfully!',
+                  style: AuthTextStyles.bodyM.copyWith(color: AuthColors.white),
+                ),
+                backgroundColor: AuthColors.success,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
         },
-        codeAutoRetrievalTimeout: (String verificationId) {},
+        codeAutoRetrievalTimeout: (_) {},
       );
     } catch (e) {
       setState(() {
@@ -160,13 +175,12 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   @override
   Widget build(BuildContext context) {
     final phoneAuthState = ref.watch(phoneAuthProvider);
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
     final defaultPinTheme = PinTheme(
       width: 56.w,
       height: 56.h,
-      textStyle: AuthTextStyles.headlineM.copyWith(
-        color: AuthColors.black,
-      ),
+      textStyle: AuthTextStyles.headlineM.copyWith(color: AuthColors.black),
       decoration: BoxDecoration(
         color: AuthColors.surfaceLight,
         borderRadius: BorderRadius.circular(12.r),
@@ -177,40 +191,41 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     return Scaffold(
       backgroundColor: AuthColors.white,
       appBar: AppBar(
-        title: Text(
-          'Enter Verification Code',
-          style: AuthTextStyles.headlineS,
-        ),
+        title: Text('Enter Verification Code', style: AuthTextStyles.headlineS),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/phone'),
+          onPressed: () => context.pop(),
         ),
       ),
-      body: Padding(
-        padding: EdgeInsets.all(24.w),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 24.h + keyboardHeight),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(height: 40.h),
-            Text(
-              'We\'ve sent a 6-digit code to',
-              style: AuthTextStyles.bodyL,
-            ),
+            Text('We\'ve sent a 6-digit code to', style: AuthTextStyles.bodyL),
             SizedBox(height: 4.h),
             Text(
               phoneAuthState.phoneNumber ?? '',
-              style: AuthTextStyles.titleM.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style:
+                  AuthTextStyles.titleM.copyWith(fontWeight: FontWeight.w700),
             ),
             SizedBox(height: 32.h),
+
             Center(
               child: Pinput(
                 length: 6,
+                controller: _pinController,
+
+                // iOS — shows code in QuickType bar above keyboard.
+                autofillHints: const [AutofillHints.oneTimeCode],
+                keyboardType: TextInputType.number,
+
                 defaultPinTheme: defaultPinTheme,
                 focusedPinTheme: defaultPinTheme.copyWith(
                   decoration: defaultPinTheme.decoration!.copyWith(
-                    border: Border.all(color: AuthColors.black, width: 1.5.w),
+                    border:
+                        Border.all(color: AuthColors.black, width: 1.5.w),
                   ),
                 ),
                 errorPinTheme: defaultPinTheme.copyWith(
@@ -223,36 +238,37 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 enabled: !_isLoading,
               ),
             ),
+
             if (_errorMessage != null) ...[
               SizedBox(height: 16.h),
               Center(
                 child: Text(
                   _errorMessage!,
-                  style: AuthTextStyles.bodyM.copyWith(
-                    color: AuthColors.error,
-                  ),
+                  style:
+                      AuthTextStyles.bodyM.copyWith(color: AuthColors.error),
+                  textAlign: TextAlign.center,
                 ),
               ),
             ],
+
             SizedBox(height: 32.h),
+
             Center(
               child: Column(
                 children: [
                   if (!_canResend && _secondsRemaining > 0)
                     Text(
                       'Resend code in $_secondsRemaining seconds',
-                      style: AuthTextStyles.bodyM.copyWith(
-                        color: AuthColors.black50,
-                      ),
+                      style: AuthTextStyles.bodyM
+                          .copyWith(color: AuthColors.black50),
                     ),
                   if (_canResend)
                     TextButton(
                       onPressed: _isLoading ? null : _resendCode,
                       child: Text(
                         'Resend Code',
-                        style: AuthTextStyles.labelM.copyWith(
-                          color: AuthColors.yellow,
-                        ),
+                        style: AuthTextStyles.labelM
+                            .copyWith(color: AuthColors.yellow),
                       ),
                     ),
                 ],

@@ -1,10 +1,27 @@
+/// Immutable state for the phone OTP verification flow.
+///
+/// Managed by [PhoneAuthNotifier] and exposed via [phoneAuthProvider].
 class PhoneAuthModel {
+  /// International phone number e.g. `+919876543210`.
   final String? phoneNumber;
+
+  /// Firebase verification ID received after [FirebaseAuth.verifyPhoneNumber].
   final String? verificationId;
+
+  /// OTP code typed by the user.
   final String? otpCode;
+
+  /// `true` after Firebase has sent the SMS code.
   final bool isCodeSent;
+
+  /// `true` while a network operation is in progress.
   final bool isLoading;
+
+  /// Human-readable error message, or `null` if no error.
   final String? error;
+
+  /// Token used for force-resending the SMS without re-triggering reCAPTCHA.
+  /// May be `null` on first send — Firebase handles this gracefully.
   final int? resendToken;
 
   const PhoneAuthModel({
@@ -17,56 +34,10 @@ class PhoneAuthModel {
     this.resendToken,
   });
 
-  factory PhoneAuthModel.initial() {
-    return const PhoneAuthModel(
-      phoneNumber: null,
-      verificationId: null,
-      otpCode: null,
-      isCodeSent: false,
-      isLoading: false,
-      error: null,
-      resendToken: null,
-    );
-  }
+  /// Initial empty state.
+  factory PhoneAuthModel.initial() => const PhoneAuthModel();
 
-  factory PhoneAuthModel.loading() {
-    return const PhoneAuthModel(
-      phoneNumber: null,
-      verificationId: null,
-      otpCode: null,
-      isCodeSent: false,
-      isLoading: true,
-      error: null,
-      resendToken: null,
-    );
-  }
-
-  factory PhoneAuthModel.codeSent({
-    required String phoneNumber,
-    required String verificationId,
-    int? resendToken,
-  }) {
-    return PhoneAuthModel(
-      phoneNumber: phoneNumber,
-      verificationId: verificationId,
-      isCodeSent: true,
-      isLoading: false,
-      error: null,
-      resendToken: resendToken,
-    );
-  }
-
-  factory PhoneAuthModel.error(String errorMessage) {
-    return PhoneAuthModel(
-      phoneNumber: null,
-      verificationId: null,
-      isCodeSent: false,
-      isLoading: false,
-      error: errorMessage,
-      resendToken: null,
-    );
-  }
-
+  /// Returns a copy with the given fields replaced.
   PhoneAuthModel copyWith({
     String? phoneNumber,
     String? verificationId,
@@ -87,11 +58,9 @@ class PhoneAuthModel {
     );
   }
 
-  PhoneAuthModel clearError() {
-    return copyWith(error: null);
-  }
+  /// Returns a copy with [error] set to `null`.
+  PhoneAuthModel clearError() => copyWith(error: null);
 
-  PhoneAuthModel setOtp(String otp) {
-    return copyWith(otpCode: otp);
-  }
+  /// Returns a copy with [otpCode] set to [otp].
+  PhoneAuthModel setOtp(String otp) => copyWith(otpCode: otp);
 }

@@ -1,16 +1,34 @@
 import 'user_model.dart';
 
+/// Possible states of the Firebase authentication session.
 enum AuthStatus {
+  /// Initial state before Firebase has responded.
   initial,
+
+  /// A sign-in or sign-out operation is in progress.
   loading,
+
+  /// User is signed in. [AuthStateModel.user] is non-null.
   authenticated,
+
+  /// No user is signed in.
   unauthenticated,
+
+  /// An error occurred. [AuthStateModel.errorMessage] contains the reason.
   error,
 }
 
+/// Immutable snapshot of the current authentication session.
+///
+/// Managed by [AuthStateNotifier] and exposed via [authStateProvider].
 class AuthStateModel {
+  /// Current authentication status.
   final AuthStatus status;
+
+  /// Signed-in user — non-null only when [status] is [AuthStatus.authenticated].
   final UserModel? user;
+
+  /// Error message — non-null only when [status] is [AuthStatus.error].
   final String? errorMessage;
 
   const AuthStateModel({
@@ -19,46 +37,34 @@ class AuthStateModel {
     this.errorMessage,
   });
 
-  factory AuthStateModel.initial() {
-    return const AuthStateModel(
-      status: AuthStatus.initial,
-      user: null,
-      errorMessage: null,
-    );
-  }
+  /// Waiting for Firebase to respond.
+  factory AuthStateModel.initial() => const AuthStateModel(
+        status: AuthStatus.initial,
+      );
 
-  factory AuthStateModel.loading() {
-    return const AuthStateModel(
-      status: AuthStatus.loading,
-      user: null,
-      errorMessage: null,
-    );
-  }
+  /// An operation is in progress.
+  factory AuthStateModel.loading() => const AuthStateModel(
+        status: AuthStatus.loading,
+      );
 
-  factory AuthStateModel.authenticated(UserModel user) {
-    return AuthStateModel(
-      status: AuthStatus.authenticated,
-      user: user,
-      errorMessage: null,
-    );
-  }
+  /// User is signed in.
+  factory AuthStateModel.authenticated(UserModel user) => AuthStateModel(
+        status: AuthStatus.authenticated,
+        user: user,
+      );
 
-  factory AuthStateModel.unauthenticated() {
-    return const AuthStateModel(
-      status: AuthStatus.unauthenticated,
-      user: null,
-      errorMessage: null,
-    );
-  }
+  /// No user signed in.
+  factory AuthStateModel.unauthenticated() => const AuthStateModel(
+        status: AuthStatus.unauthenticated,
+      );
 
-  factory AuthStateModel.error(String message) {
-    return AuthStateModel(
-      status: AuthStatus.error,
-      user: null,
-      errorMessage: message,
-    );
-  }
+  /// An error occurred.
+  factory AuthStateModel.error(String message) => AuthStateModel(
+        status: AuthStatus.error,
+        errorMessage: message,
+      );
 
+  /// Returns a copy with the given fields replaced.
   AuthStateModel copyWith({
     AuthStatus? status,
     UserModel? user,
@@ -71,7 +77,12 @@ class AuthStateModel {
     );
   }
 
+  /// `true` when the user is signed in.
   bool get isAuthenticated => status == AuthStatus.authenticated;
+
+  /// `true` when an operation is in progress.
   bool get isLoading => status == AuthStatus.loading;
+
+  /// `true` when no user is signed in.
   bool get isUnauthenticated => status == AuthStatus.unauthenticated;
 }

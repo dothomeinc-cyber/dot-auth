@@ -5,11 +5,159 @@ All notable changes to the `riverpod_offline_sync` package will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [1.1.0] - 2026-06-16
+
+### ✨ New Features
+- Added comprehensive phone number validation with all validators:
+  - `PhoneValidator.required()` - Ensures phone number is not empty
+  - `PhoneValidator.validMobile()` - Validates mobile number patterns
+  - `PhoneValidator.validFixedLine()` - Validates landline numbers
+  - `PhoneValidator.validType()` - Validates phone number type
+  - `PhoneValidator.validCountry()` - Validates country-specific formats
+  - Custom validator for length validation (10-15 digits)
+
+### 🔄 Updated
+- Phone screen now uses all available validators for better user experience
+- Improved error messages for phone number validation
+- Updated documentation with complete validator examples
+
+### 🐛 Fixed
+- Fixed `PhoneValidator` positional argument errors
+- Removed unsupported Pinput parameters (`androidSmsAutofillMethod`, `listenForMultipleSms`)
+- Removed unused import in `tc_footer.dart`
+- Removed unnecessary library name in `dot_auth.dart`
+
+### 📦 Dependencies
+- Updated to latest stable versions (same as v1.0.15)
+
+### 📝 Documentation
+- Added complete validator examples in README
+- Improved API documentation for phone validation
+
 ---
 
 ## [1.0.15] - 2024-01-15
 
 ### 🔄 Updated Dependencies
+- Updated all dependencies to latest versions
+- firebase_auth: ^6.5.1
+- firebase_core: ^4.9.0
+- go_router: ^17.2.3
+- flutter_riverpod: ^3.3.1
+- phone_form_field: ^10.0.17
+- pinput: ^6.0.2
+- google_fonts: ^8.1.0
+- Fixed StateNotifier import
+- Improved compatibility
+- Added Timers
+- Updated the Readme.md
+
+---
+
+## [1.0.13] - 2024-01-13
+
+### 🔄 Updated
+- [Previous changes...]
+---
+
+## [1.0.15] - 2024-01-15
+
+### 🔄 Updated Dependencies## 1.0.13
+- Updated all dependencies to latest versions
+- firebase_auth: ^6.5.1
+- firebase_core: ^4.9.0
+- go_router: ^17.2.3
+- flutter_riverpod: ^3.3.1
+- phone_form_field: ^10.0.17
+- pinput: ^6.0.2
+- google_fonts: ^8.1.0
+- Fixed StateNotifier import
+- Improved compatibility
+- Added Timers 
+-Updated the Readme.md
+
+
+## 1.0.12
+- Updated all dependencies to latest versions
+- firebase_auth: ^6.5.1
+- firebase_core: ^4.9.0
+- go_router: ^17.2.3
+- flutter_riverpod: ^3.3.1
+- phone_form_field: ^10.0.17
+- pinput: ^6.0.2
+- google_fonts: ^8.1.0
+- Fixed StateNotifier import
+- Improved compatibility
+- Added Timers 
+
+## 1.0.11
+- Updated all dependencies to latest versions
+- firebase_auth: ^6.5.1
+- firebase_core: ^4.9.0
+- go_router: ^17.2.3
+- flutter_riverpod: ^3.3.1
+- phone_form_field: ^10.0.17
+- pinput: ^6.0.2
+- google_fonts: ^8.1.0
+- Fixed StateNotifier import
+- Improved compatibility
+
+## 1.0.10
+- Fixed missing StateNotifier import
+- Added state_notifier dependency
+- Fixed RouterNotifier type casting
+- All providers now work correctly
+
+
+
+## 1.0.9
+- Fixed type casting error in RouterNotifier
+- Removed unnecessary type argument
+
+## 1.0.8
+- Added RouterNotifier for reactive routing
+- Improved auth state redirection
+- Better navigation handling on login/logout
+
+## 1.0.7
+- Added RouterNotifier for reactive routing
+- Improved auth state redirection
+- Better navigation handling on login/logout
+
+
+## 1.0.6
+- Added RouterNotifier for reactive routing
+- Improved auth state redirection
+- Better navigation handling on login/logout
+
+## 1.0.4
+
+- Updated README with complete API documentation
+- Added role-based access control examples
+- Improved documentation for Firestore integration
+- Fixed typos and formatting
+
+## 1.0.3
+
+- Updated README with complete API documentation
+- Added role-based access control examples
+- Improved documentation for Firestore integration
+- Fixed typos and formatting
+
+## 1.0.1
+
+- Fixed null-aware operator warnings
+- Improved documentation
+- Added more examples
+- Updated dependencies
+
+## 1.0.0
+
+- Initial release
+- Phone number authentication with OTP verification
+- Riverpod state management
+- GoRouter integration
 - Updated `firebase_auth` to `^6.5.1`
 - Updated `firebase_core` to `^4.9.0`
 - Updated `go_router` to `^17.2.3`

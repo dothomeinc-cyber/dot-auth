@@ -1,14 +1,35 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
+/// Immutable model representing a signed-in Firebase user.
+///
+/// Created automatically from [FirebaseAuth.instance.currentUser] via
+/// [UserModel.fromFirebaseUser]. Exposed through [currentUserProvider].
 class UserModel {
+  /// Firebase UID — always present.
   final String uid;
+
+  /// Phone number if user signed in with phone auth.
   final String? phoneNumber;
+
+  /// Email address if user signed in with email auth.
   final String? email;
+
+  /// Display name from Firebase profile.
   final String? displayName;
+
+  /// Photo URL from Firebase profile.
   final String? photoURL;
+
+  /// Account creation timestamp.
   final DateTime? creationTime;
+
+  /// Last sign-in timestamp.
   final DateTime? lastSignInTime;
+
+  /// Whether the user's email address has been verified.
   final bool isEmailVerified;
+
+  /// Whether the user signed in with a phone number.
   final bool isPhoneVerified;
 
   const UserModel({
@@ -23,6 +44,7 @@ class UserModel {
     this.isPhoneVerified = false,
   });
 
+  /// Creates a [UserModel] from a Firebase [User] object.
   factory UserModel.fromFirebaseUser(User firebaseUser) {
     return UserModel(
       uid: firebaseUser.uid,
@@ -30,7 +52,6 @@ class UserModel {
       email: firebaseUser.email,
       displayName: firebaseUser.displayName,
       photoURL: firebaseUser.photoURL,
-      // Fixed: removed unnecessary ?. operator
       creationTime: firebaseUser.metadata.creationTime,
       lastSignInTime: firebaseUser.metadata.lastSignInTime,
       isEmailVerified: firebaseUser.emailVerified,
@@ -38,8 +59,10 @@ class UserModel {
     );
   }
 
+  /// Empty user — useful as a null-safe sentinel.
   static const UserModel empty = UserModel(uid: '');
 
+  /// Returns a copy with the given fields replaced.
   UserModel copyWith({
     String? uid,
     String? phoneNumber,
@@ -64,6 +87,7 @@ class UserModel {
     );
   }
 
+  /// Serialises to a JSON-compatible map.
   Map<String, dynamic> toJson() {
     return {
       'uid': uid,
@@ -78,6 +102,7 @@ class UserModel {
     };
   }
 
+  /// Deserialises from a JSON-compatible map.
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       uid: json['uid'] as String,
@@ -97,7 +122,6 @@ class UserModel {
   }
 
   @override
-  String toString() {
-    return 'UserModel(uid: $uid, phoneNumber: $phoneNumber, email: $email)';
-  }
+  String toString() =>
+      'UserModel(uid: $uid, phoneNumber: $phoneNumber, email: $email)';
 }
