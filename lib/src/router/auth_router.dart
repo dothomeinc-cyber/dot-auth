@@ -1,90 +1,107 @@
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:animations/animations.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../pages/phone_screen.dart';
-import '../pages/otp_screen.dart';
+import '../config/dot_auth_config.dart';
 import '../pages/email_screen.dart';
+import '../pages/otp_screen.dart';
+import '../pages/phone_screen.dart';
 import 'router_notifier.dart';
 
-/// Optional convenience factory that wires up a fully configured [GoRouter].
+/// Builds a [GoRouter] with the dot_auth routes already wired up.
 ///
-/// For manual GoRouter setup — which gives you full control over routes,
-/// redirect logic, and animations — use [RouterNotifier] directly.
-/// See `example/lib/main.dart` for the recommended manual approach.
-///
-/// Example using [AuthRouter]:
-/// ```dart
-/// final routerProvider = Provider<GoRouter>((ref) {
-///   return AuthRouter.createRouter(
-///     ref: ref,
-///     homeRoute: '/home',
-///     homeBuilder: (_, __) => const HomeScreen(),
-///     email: true,
-///   );
-/// });
-/// ```
+/// Paths come from [dotAuthRoutesProvider], so override [DotAuthConfig] rather
+/// than passing paths here. For full control over transitions and shells, skip
+/// this and use [RouterNotifier] directly.
 class AuthRouter {
-  /// Creates a [GoRouter] with all dot_auth routes pre-configured.
+  AuthRouter._();
+
+  /// Creates the router.
   ///
-  /// - [ref] — Riverpod [Ref] from inside a `Provider`.
-  /// - [homeRoute] — your home path, e.g. `'/home'`.
-  /// - [homeBuilder] — builder for your home screen.
-  /// - [email] — registers `/email` and shows email toggle on phone screen.
-  /// - [additionalRoutes] — any extra [GoRoute]s your app needs.
-  /// - [initialLocation] — defaults to `'/phone'`.
+  /// - [ref] — the [Ref] from inside a `Provider`.
+  /// - [homeBuilder] — your home screen.
+  /// - [email] — also register the email route and show the cross-links.
+  /// - [termsBuilder] / [privacyBuilder] — optional legal pages. Skip them and
+  ///   the footer links will 404, so supply them or point the config at pages
+  ///   you register in [additionalRoutes].
+  /// - [additionalRoutes] — anything else your app needs. These are protected
+  ///   by default: signed-out users get bounced to the phone screen.
   static GoRouter createRouter({
     required Ref ref,
-    required String homeRoute,
     required Widget Function(BuildContext, GoRouterState) homeBuilder,
     bool email = false,
-    List<GoRoute> additionalRoutes = const [],
-    String initialLocation = '/phone',
+    Widget Function(BuildContext, GoRouterState)? termsBuilder,
+    Widget Function(BuildContext, GoRouterState)? privacyBuilder,
+    List<RouteBase> additionalRoutes = const [],
+    String? initialLocation,
+    GlobalKey<NavigatorState>? navigatorKey,
   }) {
-    final routerNotifier = RouterNotifier(ref);
+    final routes = ref.read(dotAuthRoutesProvider);
+    final notifier = RouterNotifier(ref);
+
+    // Without this the notifier outlives the provider and leaks its listener.
+    ref.onDispose(notifier.dispose);
 
     return GoRouter(
-      initialLocation: initialLocation,
-      refreshListenable: routerNotifier,
-      redirect: routerNotifier.redirect,
+      navigatorKey: navigatorKey,
+      initialLocation: initialLocation ?? routes.phone,
+      refreshListenable: notifier,
+      redirect: notifier.redirect,
       routes: [
         GoRoute(
-          path: '/phone',
-          name: 'phone',
-          pageBuilder: (context, state) => _slide(
+          path: routes.phone,
+          name: 'dotAuthPhone',
+          pageBuilder: (context, state) => _transition(
             state,
             AuthPhone(emailEnabled: email),
           ),
         ),
         GoRoute(
-          path: '/otp',
-          name: 'otp',
-          pageBuilder: (context, state) => _slide(state, const OtpScreen()),
+          path: routes.otp,
+          name: 'dotAuthOtp',
+          pageBuilder: (context, state) =>
+              _transition(state, const OtpScreen()),
         ),
         if (email)
           GoRoute(
-            path: '/email',
-            name: 'email',
-            pageBuilder: (context, state) => _slide(
+            path: routes.email,
+            name: 'dotAuthEmail',
+            pageBuilder: (context, state) => _transition(
               state,
               const AuthEmail(phoneEnabled: true),
             ),
           ),
+        if (termsBuilder != null)
+          GoRoute(
+            path: routes.terms,
+            name: 'dotAuthTerms',
+            pageBuilder: (context, state) =>
+                _transition(state, termsBuilder(context, state)),
+          ),
+        if (privacyBuilder != null)
+          GoRoute(
+            path: routes.privacy,
+            name: 'dotAuthPrivacy',
+            pageBuilder: (context, state) =>
+                _transition(state, privacyBuilder(context, state)),
+          ),
         GoRoute(
-          path: homeRoute,
-          name: 'home',
+          path: routes.home,
+          name: 'dotAuthHome',
           pageBuilder: (context, state) =>
-              _slide(state, homeBuilder(context, state)),
+              _transition(state, homeBuilder(context, state)),
         ),
         ...additionalRoutes,
       ],
     );
   }
 
-  /// Shared axis horizontal slide transition — used for all auth routes.
-  static CustomTransitionPage<void> _slide(GoRouterState state, Widget child) {
-    return CustomTransitionPage(
+  static CustomTransitionPage<void> _transition(
+    GoRouterState state,
+    Widget child,
+  ) {
+    return CustomTransitionPage<void>(
       key: state.pageKey,
       child: child,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {

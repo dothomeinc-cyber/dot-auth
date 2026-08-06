@@ -1,61 +1,78 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../providers/auth_provider.dart';
-import '../models/auth_state_model.dart';
 
-/// A [ChangeNotifier] that bridges [authStateProvider] to go_router's
-/// [refreshListenable] mechanism.
+import '../config/dot_auth_config.dart';
+import '../models/auth_state_model.dart';
+import '../providers/auth_provider.dart';
+import '../providers/phone_auth_provider.dart';
+
+/// Bridges the Firebase session to go_router's `refreshListenable`.
 ///
-/// Whenever Firebase auth state changes, [RouterNotifier] calls
-/// [notifyListeners], which causes go_router to re-evaluate [redirect].
+/// Whenever the session changes this calls `notifyListeners`, prompting
+/// go_router to re-run [redirect].
 ///
-/// Usage — pass a [Ref] from inside a `Provider`:
 /// ```dart
 /// final routerProvider = Provider<GoRouter>((ref) {
-///   final routerNotifier = RouterNotifier(ref);
+///   final notifier = RouterNotifier(ref);
+///   ref.onDispose(notifier.dispose); // required — see below
 ///
 ///   return GoRouter(
-///     refreshListenable: routerNotifier,
-///     redirect: routerNotifier.redirect, // or supply your own
+///     refreshListenable: notifier,
+///     redirect: notifier.redirect,
 ///     routes: [...],
 ///   );
 /// });
 /// ```
+///
+/// The `ref.onDispose` line is not optional: without it the notifier keeps its
+/// listener on `authStateProvider` alive for the life of the process.
 class RouterNotifier extends ChangeNotifier {
+  /// The [Ref] this notifier reads providers through.
   final Ref ref;
-  late final ProviderSubscription<AuthStateModel> _authSubscription;
 
-  /// Creates a [RouterNotifier] and begins listening to [authStateProvider].
+  late final ProviderSubscription<AuthStateModel> _subscription;
+
+  /// Starts listening to the Firebase session.
   RouterNotifier(this.ref) {
-    _authSubscription = ref.listen<AuthStateModel>(
+    _subscription = ref.listen<AuthStateModel>(
       authStateProvider,
       (_, __) => notifyListeners(),
     );
   }
 
-  /// Default redirect logic.
+  /// Default redirect.
   ///
-  /// - Authenticated users on auth pages → `/home`
-  /// - Unauthenticated users on `/home` → `/phone`
-  ///
-  /// Override by passing your own redirect callback to [GoRouter] instead.
+  /// - While the session is still resolving, stay put.
+  /// - Signed in and sitting on a sign-in screen → home.
+  /// - Signed out and anywhere that isn't public → the phone screen. This is a
+  ///   deny-by-default guard, so routes you add later are protected without
+  ///   you having to remember to list them.
+  /// - On the OTP screen with no code pending → back to the phone screen.
   String? redirect(BuildContext context, GoRouterState state) {
-    final isAuthenticated = ref.read(authStateProvider).isAuthenticated;
+    final authState = ref.read(authStateProvider);
+    final routes = ref.read(dotAuthRoutesProvider);
+    final location = state.matchedLocation;
 
-    final isAuthPage = state.matchedLocation == '/phone' ||
-        state.matchedLocation == '/otp' ||
-        state.matchedLocation == '/email';
+    if (authState.isResolving) return null;
 
-    if (isAuthenticated && isAuthPage) return '/home';
-    if (!isAuthenticated && state.matchedLocation == '/home') return '/phone';
+    if (authState.isAuthenticated) {
+      if (routes.signInPaths.contains(location)) return routes.home;
+      return null;
+    }
+
+    if (!routes.publicPaths.contains(location)) return routes.phone;
+
+    if (location == routes.otp && !ref.read(phoneAuthProvider).isCodeSent) {
+      return routes.phone;
+    }
 
     return null;
   }
 
   @override
   void dispose() {
-    _authSubscription.close();
+    _subscription.close();
     super.dispose();
   }
 }

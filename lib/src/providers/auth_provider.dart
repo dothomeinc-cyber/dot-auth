@@ -1,228 +1,246 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/models.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// ─── Phone Auth ────────────────────────────────────────────────────────────
+import '../models/auth_state_model.dart';
+import '../models/user_model.dart';
+import '../utils/auth_error_mapper.dart';
+import 'email_auth_provider.dart';
+import 'firebase_providers.dart';
+import 'phone_auth_provider.dart';
 
-/// Manages phone OTP verification state.
+/// Tracks the Firebase session and performs account-level operations.
 ///
-/// All Firebase calls for phone auth live in [phone_screen.dart] and
-/// [otp_screen.dart] — this notifier stores and exposes the resulting state.
-class PhoneAuthNotifier extends Notifier<PhoneAuthModel> {
-  @override
-  PhoneAuthModel build() => PhoneAuthModel.initial();
-
-  /// Stores the international phone number after it is entered.
-  void setPhoneNumber(String phoneNumber) =>
-      state = state.copyWith(phoneNumber: phoneNumber);
-
-  /// Stores the Firebase [verificationId] and optional [resendToken] received
-  /// in the [codeSent] callback. Sets [isCodeSent] to `true`.
-  void setVerificationData(String verificationId, int? resendToken) {
-    state = state.copyWith(
-      verificationId: verificationId,
-      isCodeSent: true,
-      isLoading: false,
-      resendToken: resendToken,
-    );
-  }
-
-  /// Sets the loading flag.
-  void setLoading(bool loading) => state = state.copyWith(isLoading: loading);
-
-  /// Sets an error message and clears loading.
-  void setError(String error) =>
-      state = state.copyWith(error: error, isLoading: false);
-
-  /// Clears any current error.
-  void clearError() => state = state.clearError();
-
-  /// Resets to initial state — called after successful sign-in.
-  void reset() => state = PhoneAuthModel.initial();
-
-  /// Stores the OTP code as the user types.
-  void setOtp(String otp) => state = state.setOtp(otp);
-}
-
-/// Provides phone OTP verification state across the auth flow.
-final phoneAuthProvider =
-    NotifierProvider<PhoneAuthNotifier, PhoneAuthModel>(
-  PhoneAuthNotifier.new,
-);
-
-// ─── Email Auth ────────────────────────────────────────────────────────────
-
-/// Manages email/password authentication state and Firebase operations.
-///
-/// All Firebase calls (sign in, sign up, password reset) are encapsulated
-/// here — screens only call notifier methods and read the resulting state.
-class EmailAuthNotifier extends Notifier<EmailAuthModel> {
-  @override
-  EmailAuthModel build() => EmailAuthModel.initial();
-
-  /// Stores the email address entered by the user.
-  void setEmail(String email) => state = state.copyWith(email: email);
-
-  /// Switches between [EmailAuthMode] values and resets error + reset flag.
-  void setMode(EmailAuthMode mode) => state = state.copyWith(
-        mode: mode,
-        error: null,
-        isPasswordResetSent: false,
-      );
-
-  /// Sets the loading flag.
-  void setLoading(bool loading) => state = state.copyWith(isLoading: loading);
-
-  /// Sets an error message and clears loading.
-  void setError(String error) =>
-      state = state.copyWith(error: error, isLoading: false);
-
-  /// Clears any current error.
-  void clearError() => state = state.clearError();
-
-  /// Resets to initial state.
-  void reset() => state = EmailAuthModel.initial();
-
-  /// Signs in with [email] and [password].
-  ///
-  /// On success, [authStateProvider] updates automatically via the Firebase
-  /// auth stream. On failure, [EmailAuthModel.error] is set.
-  Future<void> signIn(String email, String password) async {
-    state = state.copyWith(isLoading: true, error: null, email: email);
-    try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
-    } on FirebaseAuthException catch (e) {
-      state = state.copyWith(isLoading: false, error: _mapError(e.code));
-    } catch (_) {
-      state = state.copyWith(
-          isLoading: false, error: 'An unexpected error occurred.');
-    }
-  }
-
-  /// Creates a new account with [email] and [password].
-  ///
-  /// On success, [authStateProvider] updates automatically.
-  Future<void> signUp(String email, String password) async {
-    state = state.copyWith(isLoading: true, error: null, email: email);
-    try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
-    } on FirebaseAuthException catch (e) {
-      state = state.copyWith(isLoading: false, error: _mapError(e.code));
-    } catch (_) {
-      state = state.copyWith(
-          isLoading: false, error: 'An unexpected error occurred.');
-    }
-  }
-
-  /// Sends a password reset email to [email].
-  ///
-  /// On success, [EmailAuthModel.isPasswordResetSent] becomes `true`.
-  Future<void> sendPasswordReset(String email) async {
-    state = state.copyWith(isLoading: true, error: null, email: email);
-    try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email.trim());
-      state = state.copyWith(isPasswordResetSent: true, isLoading: false);
-    } on FirebaseAuthException catch (e) {
-      state = state.copyWith(isLoading: false, error: _mapError(e.code));
-    } catch (_) {
-      state = state.copyWith(
-          isLoading: false, error: 'An unexpected error occurred.');
-    }
-  }
-
-  String _mapError(String code) {
-    switch (code) {
-      case 'user-not-found':
-        return 'No account found with this email.';
-      case 'wrong-password':
-        return 'Incorrect password. Please try again.';
-      case 'email-already-in-use':
-        return 'An account already exists with this email.';
-      case 'invalid-email':
-        return 'Please enter a valid email address.';
-      case 'weak-password':
-        return 'Password must be at least 6 characters.';
-      case 'too-many-requests':
-        return 'Too many attempts. Please try again later.';
-      case 'network-request-failed':
-        return 'Check your internet connection.';
-      case 'invalid-credential':
-        return 'Invalid email or password.';
-      default:
-        return 'Authentication failed. Please try again.';
-    }
-  }
-}
-
-/// Provides email authentication state and Firebase operations.
-final emailAuthProvider =
-    NotifierProvider<EmailAuthNotifier, EmailAuthModel>(
-  EmailAuthNotifier.new,
-);
-
-// ─── Main Auth State ───────────────────────────────────────────────────────
-
-/// Listens to Firebase auth state changes and exposes the current session.
-///
-/// Seeds from [FirebaseAuth.instance.currentUser] immediately on first build
-/// so there is no blank loading flash on app restart.
+/// The session is seeded synchronously from `FirebaseAuth.currentUser` on the
+/// first build, so a returning user never sees a blank frame.
 class AuthStateNotifier extends Notifier<AuthStateModel> {
+  bool _disposed = false;
+  bool _ready = false;
+
+  // Cached at build time — callbacks may outlive the provider.
+  late FirebaseAuth _auth;
+
   @override
   AuthStateModel build() {
-    final sub = FirebaseAuth.instance.authStateChanges().listen(
-      _onAuthStateChanged,
-      onError: (e) => state = AuthStateModel.error('Auth error: $e'),
-    );
-    ref.onDispose(sub.cancel);
+    final auth = ref.read(firebaseAuthProvider);
+    _auth = auth;
 
-    final current = FirebaseAuth.instance.currentUser;
-    if (current != null) {
-      return AuthStateModel.authenticated(UserModel.fromFirebaseUser(current));
-    }
-    return AuthStateModel.unauthenticated();
+    final subscription = auth.authStateChanges().listen(
+          _onAuthStateChanged,
+          onError: (Object e) => _emit(
+            AuthStateModel.error('Lost connection to the account service.'),
+          ),
+        );
+
+    ref.onDispose(() {
+      _disposed = true;
+      subscription.cancel();
+    });
+
+    final current = auth.currentUser;
+    _ready = true;
+    if (current == null) return AuthStateModel.unauthenticated();
+    return AuthStateModel.authenticated(UserModel.fromFirebaseUser(current));
+  }
+
+  void _emit(AuthStateModel next) {
+    if (_disposed) return;
+    state = next;
   }
 
   void _onAuthStateChanged(User? firebaseUser) {
-    if (firebaseUser != null) {
-      state = AuthStateModel.authenticated(
-        UserModel.fromFirebaseUser(firebaseUser),
-      );
-    } else {
-      state = AuthStateModel.unauthenticated();
+    final next = firebaseUser == null
+        ? AuthStateModel.unauthenticated()
+        : AuthStateModel.authenticated(UserModel.fromFirebaseUser(firebaseUser));
+
+    // Guard against an emission that lands before build() has returned.
+    if (!_ready) {
+      scheduleMicrotask(() => _emit(next));
+      return;
+    }
+    _emit(next);
+  }
+
+  /// Signs the current user out and clears both auth flows.
+  Future<void> signOut() async {
+    _emit(AuthStateModel.loading());
+    try {
+      await _auth.signOut();
+      ref.read(phoneAuthProvider.notifier).reset();
+      ref.read(emailAuthProvider.notifier).reset();
+    } on FirebaseAuthException catch (e) {
+      _emit(AuthStateModel.error(mapAuthError(e.code)));
+    } catch (_) {
+      _emit(AuthStateModel.error('Could not sign out. Try again.'));
     }
   }
 
-  /// Signs out the current user.
-  Future<void> signOut() async {
-    state = AuthStateModel.loading();
+  /// Refetches the profile from Firebase.
+  ///
+  /// Call this after the user clicks a verification link — `emailVerified` is
+  /// cached on the client and will otherwise stay stale.
+  Future<void> reloadUser() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
     try {
-      await FirebaseAuth.instance.signOut();
-    } catch (e) {
-      state = AuthStateModel.error('Failed to sign out: $e');
+      await user.reload();
+      final refreshed = _auth.currentUser;
+      if (refreshed == null) return;
+      _emit(AuthStateModel.authenticated(
+        UserModel.fromFirebaseUser(refreshed),
+      ));
+    } catch (_) {
+      // A failed refresh leaves the cached profile in place — not worth
+      // interrupting the user over.
     }
+  }
+
+  /// Sends a verification email to the signed-in user.
+  Future<bool> sendEmailVerification() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    if (user.emailVerified) return true;
+    try {
+      await user.sendEmailVerification();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Re-authenticates with [password] for the signed-in email account.
+  ///
+  /// Firebase requires this before deleting an account or changing a password
+  /// if the last sign-in was more than a few minutes ago.
+  Future<bool> reauthenticateWithPassword(String password) async {
+    final user = _auth.currentUser;
+    final email = user?.email;
+    if (user == null || email == null) return false;
+    try {
+      await user.reauthenticateWithCredential(
+        EmailAuthProvider.credential(email: email, password: password),
+      );
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _emit(state.copyWith(errorMessage: mapAuthError(e.code)));
+      return false;
+    }
+  }
+
+  /// Changes the signed-in user's password.
+  ///
+  /// Call [reauthenticateWithPassword] first if this returns a
+  /// `requires-recent-login` failure.
+  Future<bool> updatePassword(String newPassword) async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    try {
+      await user.updatePassword(newPassword);
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _emit(state.copyWith(errorMessage: mapAuthError(e.code)));
+      return false;
+    }
+  }
+
+  /// Connects an email/password credential to the signed-in account.
+  ///
+  /// Lets someone who signed up by phone add an email login without ending up
+  /// with two separate accounts.
+  Future<bool> linkEmailPassword(String email, String password) async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    try {
+      await user.linkWithCredential(
+        EmailAuthProvider.credential(email: email.trim(), password: password),
+      );
+      await reloadUser();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _emit(state.copyWith(errorMessage: mapAuthError(e.code)));
+      return false;
+    }
+  }
+
+  /// Connects a phone credential to the signed-in account.
+  ///
+  /// Pass the `verificationId` from `phoneAuthProvider` and the code the user
+  /// typed.
+  Future<bool> linkPhoneNumber(String verificationId, String smsCode) async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    try {
+      await user.linkWithCredential(
+        PhoneAuthProvider.credential(
+          verificationId: verificationId,
+          smsCode: smsCode,
+        ),
+      );
+      await reloadUser();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _emit(state.copyWith(errorMessage: mapAuthError(e.code)));
+      return false;
+    }
+  }
+
+  /// Permanently deletes the signed-in account.
+  ///
+  /// The App Store and Play Store both require an in-app path to this. Returns
+  /// `false` and sets [AuthStateModel.errorMessage] when Firebase needs a fresh
+  /// sign-in first — re-authenticate, then call this again.
+  Future<bool> deleteAccount() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+
+    _emit(AuthStateModel.loading());
+    try {
+      await user.delete();
+      ref.read(phoneAuthProvider.notifier).reset();
+      ref.read(emailAuthProvider.notifier).reset();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _emit(AuthStateModel.authenticated(UserModel.fromFirebaseUser(user))
+          .copyWith(errorMessage: mapAuthError(e.code)));
+      return false;
+    } catch (_) {
+      _emit(AuthStateModel.authenticated(UserModel.fromFirebaseUser(user))
+          .copyWith(errorMessage: 'Could not delete the account. Try again.'));
+      return false;
+    }
+  }
+
+  /// Clears the last account error without changing the session.
+  void clearError() {
+    if (state.errorMessage == null) return;
+    _emit(state.copyWith(errorMessage: null));
   }
 }
 
-/// Provides the main Firebase authentication session state.
-///
-/// Automatically updates whenever the Firebase auth state changes.
+/// The Firebase session — the source of truth for whether anyone is signed in.
 final authStateProvider =
     NotifierProvider<AuthStateNotifier, AuthStateModel>(
   AuthStateNotifier.new,
 );
 
-/// Convenience provider — the currently signed-in [UserModel], or `null`.
-final currentUserProvider = Provider<UserModel?>((ref) {
-  return ref.watch(authStateProvider).user;
-});
+/// The signed-in [UserModel], or `null`.
+final currentUserProvider = Provider<UserModel?>(
+  (ref) => ref.watch(authStateProvider).user,
+);
 
-/// Convenience provider — `true` when a user is signed in.
-final isAuthenticatedProvider = Provider<bool>((ref) {
-  return ref.watch(authStateProvider).isAuthenticated;
+/// `true` when a user is signed in.
+final isAuthenticatedProvider = Provider<bool>(
+  (ref) => ref.watch(authStateProvider).isAuthenticated,
+);
+
+/// `true` when the signed-in user has a verified email address.
+///
+/// Also `true` for phone-only accounts, which have no email to verify — gate
+/// on `currentUserProvider?.email` first if you need to tell them apart.
+final isEmailVerifiedProvider = Provider<bool>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return false;
+  if (user.email == null) return true;
+  return user.isEmailVerified;
 });

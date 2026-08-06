@@ -1,23 +1,27 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
-/// Immutable model representing a signed-in Firebase user.
+import '_copy_with.dart';
+
+/// Immutable snapshot of a signed-in Firebase user.
 ///
-/// Created automatically from [FirebaseAuth.instance.currentUser] via
-/// [UserModel.fromFirebaseUser]. Exposed through [currentUserProvider].
+/// Built from [User] by [UserModel.fromFirebaseUser] and exposed through
+/// `currentUserProvider`.
+@immutable
 class UserModel {
   /// Firebase UID — always present.
   final String uid;
 
-  /// Phone number if user signed in with phone auth.
+  /// Phone number if the user has a phone credential.
   final String? phoneNumber;
 
-  /// Email address if user signed in with email auth.
+  /// Email address if the user has an email credential.
   final String? email;
 
-  /// Display name from Firebase profile.
+  /// Display name from the Firebase profile.
   final String? displayName;
 
-  /// Photo URL from Firebase profile.
+  /// Photo URL from the Firebase profile.
   final String? photoURL;
 
   /// Account creation timestamp.
@@ -26,11 +30,11 @@ class UserModel {
   /// Last sign-in timestamp.
   final DateTime? lastSignInTime;
 
-  /// Whether the user's email address has been verified.
+  /// Whether the email address has been verified.
   final bool isEmailVerified;
 
-  /// Whether the user signed in with a phone number.
-  final bool isPhoneVerified;
+  /// Sign-in methods connected to this account, e.g. `['phone', 'password']`.
+  final List<String> providerIds;
 
   const UserModel({
     required this.uid,
@@ -41,66 +45,82 @@ class UserModel {
     this.creationTime,
     this.lastSignInTime,
     this.isEmailVerified = false,
-    this.isPhoneVerified = false,
+    this.providerIds = const [],
   });
 
-  /// Creates a [UserModel] from a Firebase [User] object.
-  factory UserModel.fromFirebaseUser(User firebaseUser) {
+  /// Builds a [UserModel] from a Firebase [User].
+  factory UserModel.fromFirebaseUser(User user) {
     return UserModel(
-      uid: firebaseUser.uid,
-      phoneNumber: firebaseUser.phoneNumber,
-      email: firebaseUser.email,
-      displayName: firebaseUser.displayName,
-      photoURL: firebaseUser.photoURL,
-      creationTime: firebaseUser.metadata.creationTime,
-      lastSignInTime: firebaseUser.metadata.lastSignInTime,
-      isEmailVerified: firebaseUser.emailVerified,
-      isPhoneVerified: firebaseUser.phoneNumber != null,
+      uid: user.uid,
+      phoneNumber: user.phoneNumber,
+      email: user.email,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+      creationTime: user.metadata.creationTime,
+      lastSignInTime: user.metadata.lastSignInTime,
+      isEmailVerified: user.emailVerified,
+      providerIds: user.providerData.map((p) => p.providerId).toList(),
     );
   }
 
-  /// Empty user — useful as a null-safe sentinel.
+  /// Empty user — a null-safe sentinel.
   static const UserModel empty = UserModel(uid: '');
 
+  /// `true` when this instance carries no real user.
+  bool get isEmpty => uid.isEmpty;
+
+  /// `true` when a phone credential is connected.
+  bool get hasPhoneProvider => providerIds.contains('phone');
+
+  /// `true` when an email/password credential is connected.
+  bool get hasPasswordProvider => providerIds.contains('password');
+
+  /// Kept so 1.x call sites keep compiling. Prefer [hasPhoneProvider].
+  ///
+  /// The old name implied a verification step of its own; there isn't one.
+  /// A phone credential on the account *is* the proof.
+  @Deprecated('Renamed to hasPhoneProvider. Will be removed in 3.0.0.')
+  bool get isPhoneVerified => hasPhoneProvider;
+
   /// Returns a copy with the given fields replaced.
+  ///
+  /// Nullable fields accept an explicit `null` to clear them.
   UserModel copyWith({
     String? uid,
-    String? phoneNumber,
-    String? email,
-    String? displayName,
-    String? photoURL,
-    DateTime? creationTime,
-    DateTime? lastSignInTime,
+    Object? phoneNumber = kUnset,
+    Object? email = kUnset,
+    Object? displayName = kUnset,
+    Object? photoURL = kUnset,
+    Object? creationTime = kUnset,
+    Object? lastSignInTime = kUnset,
     bool? isEmailVerified,
-    bool? isPhoneVerified,
+    List<String>? providerIds,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
-      phoneNumber: phoneNumber ?? this.phoneNumber,
-      email: email ?? this.email,
-      displayName: displayName ?? this.displayName,
-      photoURL: photoURL ?? this.photoURL,
-      creationTime: creationTime ?? this.creationTime,
-      lastSignInTime: lastSignInTime ?? this.lastSignInTime,
+      phoneNumber: pick<String>(phoneNumber, this.phoneNumber),
+      email: pick<String>(email, this.email),
+      displayName: pick<String>(displayName, this.displayName),
+      photoURL: pick<String>(photoURL, this.photoURL),
+      creationTime: pick<DateTime>(creationTime, this.creationTime),
+      lastSignInTime: pick<DateTime>(lastSignInTime, this.lastSignInTime),
       isEmailVerified: isEmailVerified ?? this.isEmailVerified,
-      isPhoneVerified: isPhoneVerified ?? this.isPhoneVerified,
+      providerIds: providerIds ?? this.providerIds,
     );
   }
 
   /// Serialises to a JSON-compatible map.
-  Map<String, dynamic> toJson() {
-    return {
-      'uid': uid,
-      'phoneNumber': phoneNumber,
-      'email': email,
-      'displayName': displayName,
-      'photoURL': photoURL,
-      'creationTime': creationTime?.toIso8601String(),
-      'lastSignInTime': lastSignInTime?.toIso8601String(),
-      'isEmailVerified': isEmailVerified,
-      'isPhoneVerified': isPhoneVerified,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        'uid': uid,
+        'phoneNumber': phoneNumber,
+        'email': email,
+        'displayName': displayName,
+        'photoURL': photoURL,
+        'creationTime': creationTime?.toIso8601String(),
+        'lastSignInTime': lastSignInTime?.toIso8601String(),
+        'isEmailVerified': isEmailVerified,
+        'providerIds': providerIds,
+      };
 
   /// Deserialises from a JSON-compatible map.
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -117,11 +137,41 @@ class UserModel {
           ? DateTime.parse(json['lastSignInTime'] as String)
           : null,
       isEmailVerified: json['isEmailVerified'] as bool? ?? false,
-      isPhoneVerified: json['isPhoneVerified'] as bool? ?? false,
+      providerIds:
+          (json['providerIds'] as List?)?.cast<String>() ?? const <String>[],
     );
   }
 
   @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is UserModel &&
+        other.uid == uid &&
+        other.phoneNumber == phoneNumber &&
+        other.email == email &&
+        other.displayName == displayName &&
+        other.photoURL == photoURL &&
+        other.creationTime == creationTime &&
+        other.lastSignInTime == lastSignInTime &&
+        other.isEmailVerified == isEmailVerified &&
+        listEquals(other.providerIds, providerIds);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        uid,
+        phoneNumber,
+        email,
+        displayName,
+        photoURL,
+        creationTime,
+        lastSignInTime,
+        isEmailVerified,
+        Object.hashAll(providerIds),
+      );
+
+  @override
   String toString() =>
-      'UserModel(uid: $uid, phoneNumber: $phoneNumber, email: $email)';
+      'UserModel(uid: $uid, phone: $phoneNumber, email: $email, '
+      'providers: $providerIds)';
 }

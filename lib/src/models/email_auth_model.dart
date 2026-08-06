@@ -1,62 +1,100 @@
-/// The active screen within [AuthEmail].
+import 'package:flutter/foundation.dart';
+
+import '_copy_with.dart';
+
+/// The active screen within `AuthEmail`.
 enum EmailAuthMode {
   /// Sign in with email and password.
   signIn,
 
-  /// Create a new account with email and password.
+  /// Create a new account.
   signUp,
 
-  /// Send a password reset link to the user's email.
+  /// Send a password reset link.
   forgotPassword,
 }
 
-/// Immutable state for the email authentication flow.
-///
-/// Managed by [EmailAuthNotifier] and exposed via [emailAuthProvider].
+/// Immutable state for the email flow.
+@immutable
 class EmailAuthModel {
-  /// Last email address entered by the user.
-  final String? email;
-
-  /// `true` while a Firebase operation is in progress.
-  final bool isLoading;
-
-  /// Human-readable Firebase error message, or `null` if no error.
-  final String? error;
-
-  /// `true` after a password reset email has been sent successfully.
-  final bool isPasswordResetSent;
-
-  /// Current active mode within the email screen.
+  /// Current mode.
   final EmailAuthMode mode;
 
+  /// Last email address the user submitted.
+  final String? email;
+
+  /// `true` while a Firebase call is in flight.
+  final bool isLoading;
+
+  /// User-facing failure message, or `null`.
+  final String? error;
+
+  /// `true` after a password reset link was sent.
+  final bool isPasswordResetSent;
+
+  /// `true` after a verification email was sent following sign-up.
+  final bool isVerificationEmailSent;
+
   const EmailAuthModel({
+    this.mode = EmailAuthMode.signIn,
     this.email,
     this.isLoading = false,
     this.error,
     this.isPasswordResetSent = false,
-    this.mode = EmailAuthMode.signIn,
+    this.isVerificationEmailSent = false,
   });
 
   /// Initial empty state — mode defaults to [EmailAuthMode.signIn].
   factory EmailAuthModel.initial() => const EmailAuthModel();
 
   /// Returns a copy with the given fields replaced.
+  ///
+  /// Nullable fields accept an explicit `null` to clear them.
   EmailAuthModel copyWith({
-    String? email,
-    bool? isLoading,
-    String? error,
-    bool? isPasswordResetSent,
     EmailAuthMode? mode,
+    Object? email = kUnset,
+    bool? isLoading,
+    Object? error = kUnset,
+    bool? isPasswordResetSent,
+    bool? isVerificationEmailSent,
   }) {
     return EmailAuthModel(
-      email: email ?? this.email,
-      isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.error,
-      isPasswordResetSent: isPasswordResetSent ?? this.isPasswordResetSent,
       mode: mode ?? this.mode,
+      email: pick<String>(email, this.email),
+      isLoading: isLoading ?? this.isLoading,
+      error: pick<String>(error, this.error),
+      isPasswordResetSent: isPasswordResetSent ?? this.isPasswordResetSent,
+      isVerificationEmailSent:
+          isVerificationEmailSent ?? this.isVerificationEmailSent,
     );
   }
 
-  /// Returns a copy with [error] set to `null`.
+  /// Returns a copy with [error] genuinely cleared.
   EmailAuthModel clearError() => copyWith(error: null);
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is EmailAuthModel &&
+        other.mode == mode &&
+        other.email == email &&
+        other.isLoading == isLoading &&
+        other.error == error &&
+        other.isPasswordResetSent == isPasswordResetSent &&
+        other.isVerificationEmailSent == isVerificationEmailSent;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        mode,
+        email,
+        isLoading,
+        error,
+        isPasswordResetSent,
+        isVerificationEmailSent,
+      );
+
+  @override
+  String toString() => 'EmailAuthModel(mode: $mode, email: $email, '
+      'loading: $isLoading, error: $error)';
 }
